@@ -1,5 +1,9 @@
-saved_variables.cfg
-adxl_results/belts/*.csv
-adxl_results/vibrations/*.tar.gz
-moonraker-obico.cfg
+.env
+secrets.conf
+*.swp
+*.tmp
+printer-[0-9]*_[0-9]*.cfg
+*.bak
 *.bkp
+*.csv
+*.zip
