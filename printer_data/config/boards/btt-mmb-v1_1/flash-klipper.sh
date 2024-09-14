@@ -15,6 +15,6 @@ flash(){
 echo -e "\033[1;34m\nStopping Klipper service.\033[0m"
 sudo service klipper stop
 sleep 5
-flash()
+flash
 sleep 5
 sudo service klipper start
