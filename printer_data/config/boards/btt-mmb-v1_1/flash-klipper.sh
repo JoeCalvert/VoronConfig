@@ -17,5 +17,5 @@ sudo service klipper stop
 sleep 5
 flash
 sleep 5
-echo -e "\033[1;34m\nStopping Klipper service.\033[0m"
+echo -e "\033[1;34m\nStarting Klipper service.\033[0m"
 sudo service klipper start
