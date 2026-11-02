@@ -217,3 +217,23 @@ Checks:
 
 - [ ] **L1** Bed heats and holds temperature as before (`pwm_cycle_time`); the bed's PID re-run (F4) covers it too
 - [ ] **L2** First layer is still even across the bed with the default mesh split settings
+
+## PR #11: one LED controller; static while homing; filament colour while printing
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/hardware_functions/status_leds.cfg` | `_STATUS STATE=…` is the one controller; `STATUS_*` macros are thin wrappers (callers unchanged) | plan (LED decision) |
+| same | homing, levelling, Z calibration, meshing, cleaning, busy, ready: **static colours**, no animation | plan; no effect traffic to the CAN toolhead while homing or probing |
+| same | printing: logo LEDs follow the **loaded filament's colour** (Happy Hare gate colour from Spoolman) through a Klipper LED template; nozzle LEDs are a white work light | plan; Klipper only resends the template when the colour changes |
+| same | animated effects kept only for heating, cooling, part ready, critical error; 24 → 15 fps | plan |
+| same | effects stopped with `STOP_LED_EFFECTS LEDS="neopixel:_status_leds"` | Bug: a bare `STOP_LED_EFFECTS` (every status change before) also stopped Happy Hare's gate LED effects |
+| same | always-on 24 fps `rainbow` effect removed; idle is a dim static colour | Constant traffic to the toolhead for decoration |
+| `mmu/base/mmu_macro_vars.cfg` (`_MMU_STATE_VARS`) | `user_print_state_changed_extension: _STATUS_FROM_MMU` | Happy Hare pauses show the error effect; resuming printing restores the print colours |
+| `mmu/.mmu_config` | same value | Kept in step |
+
+Checks:
+
+- [ ] **E1** Homing and a print start show static colours, no animation, and Happy Hare's gate LEDs keep their own effects throughout
+- [ ] **E2** While printing, the logo matches the loaded filament's colour and changes after a toolchange
+- [ ] **E3** An MMU error shows the error effect; after the resume the print colours come back
+- [ ] **E4** No `SET_LED` errors in the console (the logo LEDs are GRB, the nozzle LEDs GRBW)
