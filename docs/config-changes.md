@@ -426,3 +426,32 @@ Checks:
 - [ ] **U3** The summary line shows the nozzle size, chamber temperature and loaded tool
 - [ ] **U4** After a Klipper restart, `CHECK_CONFIG` reports no dependency errors (`printer.gcode.commands` lists the Happy Hare, Blobifier and Beacon commands)
 - [ ] **U5** On the Pi: `python3 tools/check_deps.py --happy-hare ~/Happy-Hare` prints `OK`
+
+## PR #22: MMU recovery dialog, check-up, service position
+
+| File | Change | Reason |
+|---|---|---|
+| `mmu/base/mmu_macro_vars.cfg` + `mmu/.mmu_config` | `user_mmu_error_extension: _MMU_RECOVERY` (was empty) | Happy Hare's documented hook for MMU errors in a print |
+| `macros/mmu_hooks/recovery.cfg` (new) | `_MMU_RECOVERY`: what failed, where the filament is, what the print needs, the nozzle heater state, and buttons for that situation (table at the top of the file). Each button runs one Happy Hare command, then re-shows the dialog | Replaces Happy Hare's generic RESUME/UNLOCK pop-up, which it shows over. If the hook is ever lost, Happy Hare's pop-up still appears (`show_error_dialog` stays 1) |
+| same | Resume only appears, and only resumes, once the needed tool is loaded to the nozzle. Cancel asks first | Resuming with the wrong or no filament prints air. The UI's own Resume still overrides |
+| same | `MMU_CHECKUP`: finds the filament (`MMU_RECOVER`), optionally checks every gate, then lists gates, tools, material and state | For after fiddling by hand. When printing it only shows the last known state |
+| `macros/motion/service.cfg` (new) | `SERVICE_POSITION`: lift Z to at least 100 (never lower), X then Y to 175,40, lights full | Reach the nozzle. Safe in a pause because it only raises Z |
+| `config/variables.cfg` | `service_position_xy: 175, 40`, `service_min_z: 100` | |
+| `macros/ui/menu.cfg` | MENU shows "MMU recovery" while the MMU is paused, otherwise "MMU check-up". Also a "Service position" button | |
+| `macros/system/dependencies.cfg` | adds the 7 Happy Hare commands and 8 status fields these use, and the new hook (warning if lost) | `check_deps.py` passes against 4.1 and the 4.2 development branch |
+
+Simulator: new scenarios for each filament position, the gate picker, the
+refused resume, cancel confirmation, the check-up and the service position.
+`MENU` gains the new buttons. Nothing else changed.
+
+Checks (each needs a deliberately caused MMU error during a test print; easiest
+is pulling a spool's filament back past the gate before a toolchange):
+
+- [ ] **R1** On an MMU error, the "MMU paused" dialog replaces Happy Hare's, in Fluidd and on KlipperScreen. The reason and filament position look right
+- [ ] **R2** Parked-in-gate case (runout): reload the spool, press Preload, then Load. The dialog comes back showing "loaded", and "Resume the print" resumes
+- [ ] **R3** Press Resume while the wrong tool is loaded (or none). It says "Not resuming yet" and stays paused
+- [ ] **R4** Keep hot turns the nozzle back on after the 10-minute heater timeout
+- [ ] **R5** Cancel print asks first. "No, go back" returns to the dialog
+- [ ] **R6** `SERVICE_POSITION` during a pause only lifts Z. After Resume, the toolhead returns to the print and carries on normally
+- [ ] **R7** `MMU_CHECKUP` when idle lists the gates correctly. "Check every gate" runs Happy Hare's gate check
+- [ ] **R8** "Use another gate" lists only gates with filament, and picking one remaps the tool and loads it
