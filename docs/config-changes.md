@@ -628,3 +628,22 @@ Checks:
 - [ ] **T5** `MMU_ENDLESS_SPOOL` shows endless spool enabled, with gates of the same filament grouped. If it still says disabled, Happy Hare has a saved "off" in `mmu_vars.cfg`: run `MMU_ENDLESS_SPOOL ENABLE=1` once
 - [ ] **T6** Encoder clog detection: no false clog pauses over a few prints. If they happen, use `flowguard_encoder_mode: 1` with a larger `flowguard_encoder_max_motion`
 - [ ] **T7** Klipper starts without `[mcu rpi]`. You can disable the `klipper-mcu` service afterwards
+
+## PR #30: Klipper's on-error hook, duplicate sections, SCV 5, Happy Hare extrusion limits
+
+| File | Change | Reason |
+|---|---|---|
+| `config/machine.cfg` | `[virtual_sdcard] on_error_gcode`: `TURN_OFF_HEATERS`, then `_JOB_FAILED_LATER` (a delayed `_JOB_FAILED`, 1 s later) | Klipper's own hook replaces relying on Happy Hare's print detection. Klipper runs it before recording the error message, hence the delay |
+| `macros/state/status_leds.cfg`, `startup_check.cfg`, `dependencies.cfg` | Happy Hare state `error` no longer triggers the dialog. The `print_start_detection` warning and dependency are gone | One trigger |
+| `config/machine.cfg` | `square_corner_velocity: 5.0` (was 12) | Klipper's default. Higher adds input-shaper smoothing. Per-feature SCV comes after the Monolith/A4T upgrade, from the slicer |
+| `mmu/base/mmu_macro_vars.cfg` | `[respond]`, `[display_status]`, `[pause_resume]` removed (still in `config/machine.cfg`) | Defined twice. The installer may add them back on an update, which is harmless |
+| `config/hardware/extruder.cfg` | `max_extrude_only_distance: 200` (was 120), `max_extrude_cross_section: 50` (was 5) | **Found while doing the above.** Happy Hare sets these in `mmu_macro_vars.cfg` as MMU requirements, but `extruder.cfg` is included later, so our lower values silently won. Now the same as Happy Hare's |
+| `mainsail.cfg` | removed | A broken link to a Mainsail install you don't use |
+
+Simulator: identical (the failure scenarios now call `_JOB_FAILED` directly).
+
+Checks:
+
+- [ ] **E1** Make a print fail (e.g. a file sliced for the wrong nozzle): the heaters go off and, a second later, the "Print stopped" dialog shows the error message
+- [ ] **E2** `SET_VELOCITY_LIMIT` with no parameters reports square_corner_velocity 5. Re-tune the shaper with this value (Shake&Tune graphs use it)
+- [ ] **E3** Toolchanges, Blobifier purges and loads run without "Extrude only move too long" or "Move exceeds maximum extrusion" errors
