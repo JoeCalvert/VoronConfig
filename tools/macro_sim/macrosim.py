@@ -23,6 +23,9 @@ def parse_files(root):
         cur = None; key = None
         for raw in open(p, errors='replace').read().split('\n'):
             if raw.startswith('#*#'): break
+            # Klipper (configfile.py) cuts every line at its first '#', even
+            # inside quotes; ';' starts a comment only after whitespace.
+            raw = raw.split('#')[0]
             hdr = raw.split('#')[0].strip()
             # Indented lines continue the previous option, even if they start with '['
             m = re.match(r'^\[([^\]]+)\]', hdr) if raw[:1] not in (' ', '\t') else None
@@ -41,7 +44,7 @@ def parse_files(root):
             m = re.match(r'^([A-Za-z_0-9]+)\s*[:=]\s*(.*)$', s)
             if m:
                 key = m.group(1).lower(); cur[key] = m.group(2)
-            elif not raw.strip() or raw.lstrip().startswith(('#', ';')):
+            elif not raw.strip() or raw.lstrip().startswith(';'):
                 pass
     walk(os.path.join(root, 'printer.cfg'))
     macros = {}

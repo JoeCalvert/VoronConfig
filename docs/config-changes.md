@@ -749,3 +749,16 @@ Checks:
 - [ ] **V2** Rebuild the presets; Quality and PIF prints show "Classic" in PrusaSlicer's wall generator; a carbon-fibre filament only appears with the ObXidian printer
 - [ ] **V3** Print a part with overhangs and a cylinder at Standard: no slowdown marks on gentle overhangs, seam hidden on the cylinder
 - [ ] **V4** Measure the toolhead clearance (radius around the nozzle, nozzle tip to the gantry) and set `extruder_clearance_*` before using Stencil
+
+## PR #36: Klipper wouldn't start ('#' inside macros)
+
+Klipper's config reader cuts every line at its first `#`, even inside a quoted string (`klippy/configfile.py`). Thirteen macros used `replace('#', '')` to clean text for dialogs, so their lines were cut short and Klipper halted with "Error loading template 'gcode_macro _JOB_FAILED:gcode'" (the first of them).
+
+| File | Change | Reason |
+|---|---|---|
+| 9 macro files | `replace('#', …)` → `replace('%c' % 35, …)` (the same character, produced at run time) | No `#` in the file for Klipper to cut at |
+| `tools/macro_sim/macrosim.py` | Strips comments exactly as Klipper does | It treated `#` as a comment only after a space, so it ran the uncut lines and passed |
+| `tools/check_deps.py` | Fails on a `#` inside a quoted string | Clear message for this mistake |
+| `tools/klipper_load_check.py` (new), CI | Loads the config with Klipper's own reader and compiles every template in Klipper's Jinja environment (all errors, not just the first) | Catches anything that stops Klipper starting before it reaches the printer |
+
+- [ ] **K1** Deploy, `RESTART`: Klipper starts

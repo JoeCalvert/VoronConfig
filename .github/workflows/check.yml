@@ -23,6 +23,11 @@ jobs:
           python-version: '3.11'
       - run: pip install jinja2
 
+      - name: Klipper can load the config (its own reader; every template compiles)
+        run: |
+          git clone --depth 1 https://github.com/Klipper3d/klipper /tmp/klipper
+          python3 tools/klipper_load_check.py --klipper /tmp/klipper
+
       - name: Dependency list is complete
         run: python3 tools/check_deps.py
 
