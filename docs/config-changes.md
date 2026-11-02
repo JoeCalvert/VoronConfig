@@ -724,3 +724,28 @@ Checks:
 - [ ] **S6** A short print from the new presets prints normally; compare speed and quality with the old Standard preset
 - [ ] **S7** MENU → Bypass with the bypass calibrated: select, load, print with a "(bypass)" printer, unload
 - [ ] **S8** `CAL_FILAMENT TEST=flow` on the HF nozzle: the wall changes from smooth to rough partway up; pick the band; the console shows it saved to Spoolman
+
+## PR #35: every slicer setting reviewed
+
+The full review, setting by setting with sources: `docs/slicer-settings.md`. Key-by-key list: `docs/slicer-reference.md` (CI keeps it current).
+
+| File | Change | Reason |
+|---|---|---|
+| `slicer/profiles.py` | Inner walls = outer walls: 150 mm/s, 0.5 × max_accel (was 200 / 0.7 and 150 / 0.45). Quality: both 100 at 0.35× | Voron Discord: PA is tuned at one wall speed/acceleration; different inner/outer walls show it |
+| same | Overhang speeds 50 / 70 / 100 % / 100 % (bridging → 75 % overlap) | Discord (the author of Orca's port of this feature): slow only near bridging, and not far |
+| same | Top surface acceleration 0.3 × max_accel (was 0.45) | PS-Voron 1200, PS-Prusa 800–2000 |
+| same | Infill anchors 2.5 / 12 mm (was 600 % / 20); G-code resolution 0.008 (was 0.0125); one skirt loop | PrusaSlicer's Voron and Prusa profiles |
+| same | Classic wall generator for Quality and PIF | Discord reports Arachne outer-wall artefacts; PS-Voron printed parts use Classic |
+| same | Draft: automatic infill combination | PrusaSlicer 2.9 feature, faster sparse infill |
+| same | ABS/ASA/PC minimum layer time 8 s (5 in PR #34); cooling transition 10 mm; fan ramps to full by layer 3; overhang fan per material (dynamic fan on) | Discord: 3 s too low for ABS, 8–15 typical; PS-Voron cooling logic |
+| same, `tools/build_slicer_profiles.py`, `tools/spoolman_tuning.py` | Abrasive filaments (Spoolman `abrasive`, or CF/GF/carbon/glass in the name) are flagged and only offered for the hardened ObXidian printer | PrusaSlicer 2.9's abrasive flag; protects brass nozzles |
+| same | Toolhead clearance 75 / 33 mm (was 20 / 20); host type moonraker; time-estimate corner speed = square_corner_velocity | One-at-a-time printing (Stencil) needs real clearance |
+| `config/hardware/extruder.cfg` | `pressure_advance_smooth_time: 0.02` (was 0.04) | Discord: 0.015–0.02; the default lags speed changes |
+| `config/variables.cfg` | PA test walls 150 mm/s, 3500 mm/s² (was 100 / 4000); the build warns if they differ from the presets | PA must be tuned at the walls' speed and acceleration |
+
+Checks:
+
+- [ ] **V1** Retune PA after this (smoothing changed): RETUNE → PA and EM
+- [ ] **V2** Rebuild the presets; Quality and PIF prints show "Classic" in PrusaSlicer's wall generator; a carbon-fibre filament only appears with the ObXidian printer
+- [ ] **V3** Print a part with overhangs and a cylinder at Standard: no slowdown marks on gentle overhangs, seam hidden on the cylinder
+- [ ] **V4** Measure the toolhead clearance (radius around the nozzle, nozzle tip to the gantry) and set `extruder_clearance_*` before using Stencil

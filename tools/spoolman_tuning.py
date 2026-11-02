@@ -55,7 +55,8 @@ def fields():
            ('fan_min', 'Part fan min', 'integer', '%'),
            ('fan_max', 'Part fan max', 'integer', '%'),
            ('chamber_temp', 'Chamber temperature', 'integer', '°C'),
-           ('retract_length', 'Retraction length', 'float', 'mm')]
+           ('retract_length', 'Retraction length', 'float', 'mm'),
+           ('abrasive', 'Abrasive (needs hardened nozzle)', 'boolean', None)]
     for k in nozzle_keys():
         out.append((pa_field(k), 'PA %s' % k.replace('_', ' '), 'float', None))
     return out
