@@ -455,3 +455,27 @@ is pulling a spool's filament back past the gate before a toolchange):
 - [ ] **R6** `SERVICE_POSITION` during a pause only lifts Z. After Resume, the toolhead returns to the print and carries on normally
 - [ ] **R7** `MMU_CHECKUP` when idle lists the gates correctly. "Check every gate" runs Happy Hare's gate check
 - [ ] **R8** "Use another gate" lists only gates with filament, and picking one remaps the tool and loads it
+
+## PR #23: failed-print dialog and unload-after-cancel
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/print/job_recovery.cfg` (new) | `_JOB_FAILED`: when a print stops with an error (in `START_PRINT` or while printing), job phase `failed`, machine state `failed`, and a dialog with the error, the step it was on, Reprint / Turn the heaters off / Unload | Klipper just stops with the heaters on. Klipper has no error hook, but Happy Hare reports print state `error`, so no polling is needed |
+| `macros/state/status_leds.cfg` | `_STATUS_FROM_MMU` runs `_JOB_FAILED` on Happy Hare state `error` | |
+| `macros/state/machine_state.cfg` | new machine state `failed` (error LED effect, filter off) and job phase `failed` | |
+| `macros/print/end_print.cfg` | after a cancel, `_OFFER_UNLOAD` asks whether to unload any loaded filament | `unload_tool_on_cancel` stays off: a cancel may be because of a filament problem, so it asks instead |
+| `macros/ui/menu.cfg` | "Why did the last print stop?" after a failure | Re-open the dialog later |
+| `macros/state/startup_check.cfg` | warns if Happy Hare's `print_start_detection` is off | The failed-print dialog depends on it |
+| `macros/system/dependencies.cfg`, `tools/check_deps.py` | Happy Hare `[mmu]` parameters we read (`disable_heater`, `print_start_detection`) are listed and checked too | |
+| `docs/state-table.md` | rows for the unload offer, a failed print and an MMU error | |
+
+Simulator: `cancel` now ends with the unload dialog (T0 loaded). New scenarios
+for a failure while starting and while printing, and a cancel with nothing
+loaded (no dialog). Nothing else changed.
+
+Checks:
+
+- [ ] **J1** Cancel a print with filament loaded: the "Unload the filament?" dialog appears. Unload cuts and parks the filament, then turns the nozzle off. "Leave it loaded" just closes
+- [ ] **J2** Make `START_PRINT` fail, e.g. start a print sliced for the wrong nozzle size. The "Print stopped" dialog shows the error, and Reprint starts the same file again
+- [ ] **J3** After a failure, MENU shows "Why did the last print stop?" and the toolhead LEDs show the error effect
+- [ ] **J4** "Turn the heaters off" turns off the nozzle, bed and part fan

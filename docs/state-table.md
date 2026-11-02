@@ -13,7 +13,7 @@ console to print both):
   what each state looks like. `printer["gcode_macro _SET_STATE"].state` is the
   current machine state.
 - **`_JOB`** holds the print job: `phase` (idle → preparing → prepared →
-  printing → complete | cancelled) and the chamber target. `POST_START_PRINT`
+  printing → complete | cancelled, or failed) and the chamber target. `POST_START_PRINT`
   refuses to run unless `START_PRINT` reached `prepared`.
 
 | State | Sequence | Ends at | Where |
@@ -27,6 +27,9 @@ console to print both):
 | MMU error | Pause: z-hop, retract, park on the back row (175,355), sideways along the back from the tray. Heater off after 600 s. After you fix it, resume: `BLOBIFIER_CLEAN` wipe, then Happy Hare finishes the toolchange and returns | Back row | Happy Hare + `user_resume_extension` |
 | User pause | Same park and resume | Back row | Happy Hare |
 | Cancel | Happy Hare: z-hop 10 mm, retract 5 mm, heaters off; filament stays loaded. Then `_CANCEL_PRINT_EXTENSION` → `_END_JOB REASON=cancel`: `PARK` (X before Y), heaters off, mesh cleared, state `cancelled` (lights, LEDs and filter off) | End-of-job point (175,100), high Z | `macros/mmu_hooks/cancel_print.cfg`, `macros/print/end_print.cfg` |
+| Cancel → unload offer | After the cancel sequence, if filament is still loaded, a dialog offers to unload it (`MMU_UNLOAD`, then nozzle off) | Wherever the unload's cut leaves it | `macros/print/job_recovery.cfg` |
+| Print stops with an error | Happy Hare reports print state `error` → `_STATUS_FROM_MMU` → `_JOB_FAILED`: phase `failed`, state `failed` (error LEDs, filter off), dialog with the error and the step it was on: Reprint / Heaters off / Unload. No motion | Where it stopped. Heaters stay on until you choose or the idle timeout (10 min) | `macros/print/job_recovery.cfg` |
+| MMU error in a print | Happy Hare pauses and parks (`park_pause`), then `_MMU_RECOVERY` shows the recovery dialog. Its buttons run single Happy Hare commands. Resume only once the needed tool is loaded | Pause park, or wherever a recovery step leaves it. Resume returns to the print | `macros/mmu_hooks/recovery.cfg` |
 | Complete | Slicer end G-code: `MMU_END` (lift only, then cut and unload), then `END_PRINT` → `_END_JOB REASON=complete`: `PARK`, heaters off, mesh cleared, motors off, state `complete` (end-of-print light; filter runs 10 min after a heated-chamber print) | End-of-job point | `macros/print/end_print.cfg` |
 
 ## Fixed positions

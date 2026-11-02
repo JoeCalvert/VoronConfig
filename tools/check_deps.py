@@ -58,7 +58,7 @@ def our_macros():
 
 def used(macros):
     """What our macros use: commands, printer.mmu fields, Happy Hare variables."""
-    cmds, fields, settings, internal = {}, {}, {}, {}
+    cmds, fields, settings, internal, params = {}, {}, {}, {}, {}
     for name, (opts, path) in macros.items():
         body = opts.get('gcode', '')
         where = '%s (%s)' % (name, path)
@@ -79,11 +79,14 @@ def used(macros):
             f = f[0] or f[1]
             if f not in ('get',):
                 fields.setdefault(f, where)
+        # Happy Hare [mmu] parameters read from printer.configfile.settings.mmu.
+        for f in re.findall(r'settings\.mmu(?:\|default\(\{\}\)\))?\.(\w+)', body):
+            params.setdefault(f, where)
         # Happy Hare / Blobifier variables read through an alias.
         for alias, macro in re.findall(r"set (\w+) = printer\[['\"]gcode_macro (_(?:MMU|BLOBIFIER)\w+)['\"]\]", body):
             for v in re.findall(r'(?<![\w.])%s\.(\w+)' % alias, body):
                 settings.setdefault((macro, v), where)
-    return cmds, fields, settings, internal
+    return cmds, fields, settings, internal, params
 
 
 def listed():
@@ -92,7 +95,7 @@ def listed():
             if name == 'gcode_macro _DEPENDENCIES':
                 get = lambda k: ast.literal_eval(opts['variable_' + k].strip())
                 return dict(commands=get('commands'), mmu_fields=get('mmu_fields'),
-                            hooks=get('hooks'), settings=get('settings'),
+                            hooks=get('hooks'), settings=get('settings'), params=get('mmu_params'),
                             tested=get('happy_hare_tested'))
     sys.exit('macros/system/dependencies.cfg: no _DEPENDENCIES macro')
 
@@ -104,6 +107,7 @@ def happy_hare_surface(hh):
     cmds = set(re.findall(r'CMD\s*=\s*"([A-Z_0-9]+)"', py))
     cmds |= set(re.findall(r"register_command\(\s*['\"]([A-Z_0-9]+)['\"]", py))
     fields = set(re.findall(r"^\s*'(\w+)'\s*:", py, re.M))
+    params = set(re.findall(r"ParamSpec\(\s*'(\w+)'", py))
     variables = {}
     for p in glob.glob(os.path.join(hh, 'config', '**', '*.cfg'), recursive=True):
         for name, opts in sections(p):
@@ -112,7 +116,7 @@ def happy_hare_surface(hh):
                 cmds.add(m)
                 variables.setdefault(m, set()).update(k[9:] for k in opts if k.startswith('variable_'))
     m = re.search(r'VERSION\s*=\s*"([\d.]+)"', py)
-    return cmds, fields, variables, (m.group(1) if m else '?')
+    return cmds, fields, params, variables, (m.group(1) if m else '?')
 
 
 def main():
@@ -120,7 +124,7 @@ def main():
     ap.add_argument('--happy-hare', help='path to a Happy Hare checkout (e.g. ~/Happy-Hare)')
     a = ap.parse_args()
     problems = []
-    cmds, fields, settings, internal = used(our_macros())
+    cmds, fields, settings, internal, params = used(our_macros())
     deps = listed()
 
     for c, where in sorted(internal.items()):
@@ -131,6 +135,9 @@ def main():
     for f, where in sorted(fields.items()):
         if f not in deps['mmu_fields']:
             problems.append('%s uses printer.mmu.%s, which is missing from _DEPENDENCIES mmu_fields' % (where, f))
+    for f, where in sorted(params.items()):
+        if f not in deps['params']:
+            problems.append('%s reads the Happy Hare parameter %s, which is missing from _DEPENDENCIES mmu_params' % (where, f))
     known = {tuple(s) for s in deps['settings']} | {(h[0], h[1]) for h in deps['hooks']}
     for s, where in sorted(settings.items()):
         if s not in known:
@@ -138,7 +145,7 @@ def main():
 
     if a.happy_hare:
         hh = os.path.expanduser(a.happy_hare)
-        hcmds, hfields, hvars, version = happy_hare_surface(hh)
+        hcmds, hfields, hparams, hvars, version = happy_hare_surface(hh)
         print('Happy Hare %s at %s' % (version, hh))
         for c in deps['commands']:
             if c.startswith(('MMU_', 'BLOBIFIER')) and c not in hcmds:
@@ -146,6 +153,9 @@ def main():
         for f in deps['mmu_fields']:
             if f not in hfields:
                 problems.append('Happy Hare no longer reports printer.mmu.%s' % f)
+        for f in deps['params']:
+            if f not in hparams:
+                problems.append('Happy Hare no longer has the parameter %s' % f)
         for macro, var in [tuple(s) for s in deps['settings']] + [(h[0], h[1]) for h in deps['hooks']]:
             if var not in hvars.get(macro.upper(), set()):
                 problems.append('Happy Hare no longer has the variable %s.%s' % (macro, var))
@@ -156,8 +166,8 @@ def main():
     for p in problems:
         print('PROBLEM:', p)
     print('%d problem(s)' % len(problems) if problems else
-          'OK: %d commands, %d mmu fields, %d settings/hooks' %
-          (len(deps['commands']), len(deps['mmu_fields']), len(deps['settings']) + len(deps['hooks'])))
+          'OK: %d commands, %d mmu fields, %d mmu parameters, %d settings/hooks' %
+          (len(deps['commands']), len(deps['mmu_fields']), len(deps['params']), len(deps['settings']) + len(deps['hooks'])))
     sys.exit(1 if problems else 0)
 
 
