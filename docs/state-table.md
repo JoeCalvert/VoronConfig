@@ -5,6 +5,17 @@ Happy Hare owns everything between unload and load. Our macros own job start and
 end. They meet only through Happy Hare's `user_*` hooks
 (`mmu/base/mmu_macro_vars.cfg`), whose handlers live in `macros/mmu_hooks/`.
 
+Two records make the current situation visible at any time (run `_JOB` in the
+console to print both):
+
+- **`_SET_STATE STATE=…`** (`macros/state/machine_state.cfg`) is the only place
+  the toolhead LEDs, case light and filter are set. Its header has the table of
+  what each state looks like. `printer["gcode_macro _SET_STATE"].state` is the
+  current machine state.
+- **`_JOB`** holds the print job: `phase` (idle → preparing → prepared →
+  printing → complete | cancelled) and the chamber target. `POST_START_PRINT`
+  refuses to run unless `START_PRINT` reached `prepared`.
+
 | State | Sequence | Ends at | Where |
 |---|---|---|---|
 | Startup | `CHECK_CONFIG` runs after 5 s; `START_PRINT` is blocked if it finds errors | | `macros/state/startup_check.cfg` |
@@ -15,8 +26,8 @@ end. They meet only through Happy Hare's `user_*` hooks
 | Toolchange / runout | Z-hop 1 mm, retract 2 mm. Cut (Happy Hare's guarded approach along Y 346), unload and load at the cutter exit (X 90), purge, wipe. Straight to the next print position | Next print position | Happy Hare |
 | MMU error | Pause: z-hop, retract, park on the back row (175,355), sideways along the back from the tray. Heater off after 600 s. After you fix it, resume: `BLOBIFIER_CLEAN` wipe, then Happy Hare finishes the toolchange and returns | Back row | Happy Hare + `user_resume_extension` |
 | User pause | Same park and resume | Back row | Happy Hare |
-| Cancel | Happy Hare: z-hop 10 mm, retract 5 mm, heaters off; filament stays loaded. Then `_CANCEL_PRINT_EXTENSION`: mesh cleared, filter, lights, LEDs, `PARK` (X before Y) | End-of-job point (175,100), high Z | `macros/mmu_hooks/cancel_print.cfg` |
-| Complete | Slicer end G-code: `MMU_END` (lift only, then cut and unload), `END_PRINT` (`PARK`, heaters off, filter run-on, lights) | End-of-job point | `macros/print/end_print.cfg` |
+| Cancel | Happy Hare: z-hop 10 mm, retract 5 mm, heaters off; filament stays loaded. Then `_CANCEL_PRINT_EXTENSION` → `_END_JOB REASON=cancel`: `PARK` (X before Y), heaters off, mesh cleared, state `cancelled` (lights, LEDs and filter off) | End-of-job point (175,100), high Z | `macros/mmu_hooks/cancel_print.cfg`, `macros/print/end_print.cfg` |
+| Complete | Slicer end G-code: `MMU_END` (lift only, then cut and unload), then `END_PRINT` → `_END_JOB REASON=complete`: `PARK`, heaters off, mesh cleared, motors off, state `complete` (end-of-print light; filter runs 10 min after a heated-chamber print) | End-of-job point | `macros/print/end_print.cfg` |
 
 ## Fixed positions
 
