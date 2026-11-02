@@ -20,7 +20,7 @@ console to print both):
 |---|---|---|---|
 | Startup | `CHECK_CONFIG` runs after 5 s; `START_PRINT` is blocked if it finds errors | | `macros/state/startup_check.cfg` |
 | Homing (`G28`, `_CG28`) | X then Y, sensorless (X moves right, away from the pin, first). Z by Beacon proximity, safe at any nozzle temperature. LEDs static | Z home point (300,300) | `macros/motion/` |
-| `START_PRINT` | Home if needed. Bed to target, nozzle to 150 °C. Heat-soak if the slicer asks for a chamber temperature (filter on). Coarse QGL, wipe, contact home with `CALIBRATE=1`, QGL, contact home, adaptive mesh. Park over the Blobifier tray, heat to print temperature, apply the hot-nozzle offset | Tray | `macros/print/start_print.cfg` |
+| `START_PRINT` | Home if needed. Bed to target, nozzle to 150 °C. Heat-soak if the slicer asks for a chamber temperature (filter on), waiting at `soak_position_xyz` (300,300, Z 2). Coarse QGL, wipe, contact home with `CALIBRATE=1`, QGL, contact home, adaptive mesh. Park over the Blobifier tray, heat to print temperature, apply the hot-nozzle offset | Tray | `macros/print/start_print.cfg` |
 | First tool load | `MMU_START_LOAD_INITIAL_TOOL`: load, Blobifier purge, wipe | Brush exit (X 70, back row), then the first print move | Happy Hare |
 | Printing | `POST_START_PRINT`: filter to working speed, lights, LEDs show the filament colour | | `macros/print/post_start_print.cfg` |
 | Toolchange / runout | Z-hop 1 mm, retract 2 mm. Cut (Happy Hare's guarded approach along Y 346), unload and load at the cutter exit (X 90), purge, wipe. Straight to the next print position | Next print position | Happy Hare |

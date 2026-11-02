@@ -371,3 +371,26 @@ Checks:
 - [ ] **M2** Cancel a print: park, lights and LEDs off, filter off
 - [ ] **M3** Run `POST_START_PRINT` alone from the console: it refuses with the job-phase message
 - [ ] **M4** Run `_JOB` from the console at any point: it prints the job phase and machine state
+
+## PR #19: macro hygiene
+
+| File | Change | Reason |
+|---|---|---|
+| every public macro | a `description`, with a `Usage:` line where it takes parameters | 21 had none. The description is what Mainsail shows on the button and `HELP` prints |
+| `macros/state/startup_check.cfg` | `CHECK_CONFIG` warns about any public macro without a description | Keeps the convention honest (pattern from klipper-macros' `CHECK_MACRO_DOCS`) |
+| `macros/motion/tilting.cfg` | removed (`_TILT_CALIBRATE`) | Never called, and it read a variable that doesn't exist |
+| `macros/motion/sensorless_homing.cfg` | `_SENSORLESS_HOME_X/Y` removed | Never called; the Beacon homing hooks call `_PRE/_POST_SENSORLESS` directly |
+| `macros/motion/park.cfg` | unused `E` parameter removed; description corrected | It promised a retract it never did |
+| `macros/accessories/heatsoak.cfg` | chamber wait loop runs `MAXTIME` minutes (was `MAXTIME − 1`) | Off-by-one |
+| same | bed and chamber soaks both wait at `soak_position_xyz` (300,300, Z 2), moving XY first then Z, at the configured speeds | Two hardcoded positions (bed max −50 at Z 2, max −10 at Z 15) at a fixed `F6000` |
+| `config/variables.cfg` | `soak_position_xyz: 300, 300, 2` | One setting for the soak position, matching `docs/state-table.md` |
+
+`FAST_QGL` stays, by your decision (manual use), now with a description.
+
+Simulator differences from PR #18: the soak moves (new position and speeds, XY
+then Z), and one more minute in the chamber-wait loop. Nothing else changed.
+
+Checks:
+
+- [ ] **H4** A chamber soak waits at 300,300 with the nozzle 2 mm above the bed, and stops after `print_default_chamber_max_heating_time` minutes if the chamber never reaches its target
+- [ ] **H5** Mainsail's macro buttons show the new descriptions. `CHECK_CONFIG` shows no "without a description" warning (if it lists Happy Hare macros, ignore them)
