@@ -340,3 +340,34 @@ Checks:
 Checks:
 
 - [ ] **V1** Klipper restarts without config errors (e.g. no "unknown variable" in a macro), and a print start looks the same as before
+
+## PR #18: one machine-state controller, one end-of-job sequence
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/state/machine_state.cfg` (new) | `_SET_STATE STATE=…` decides the toolhead LEDs, case light and filter for each state, from one table in its header. `_JOB` holds the job phase and chamber target | Before, the lights, filter and LEDs for each state were set separately in `START_PRINT`, `POST_START_PRINT`, `END_PRINT` and the cancel hook |
+| `macros/print/start_print.cfg` | enters states (`preparing`, `soaking`/`heating`, `leveling`, `calibrating_z`, `meshing`, `heating`) instead of setting LEDs, lights and the filter | Says *what* is happening, not how it should look |
+| `macros/print/post_start_print.cfg` | refuses to run unless `START_PRINT` finished (job phase `prepared`) | Start-order check (pattern from klipper-macros) |
+| `macros/print/end_print.cfg` | new `_END_JOB REASON=complete\|cancel`, used by both `END_PRINT` and the cancel hook | The two end sequences repeated most of the same steps |
+| `macros/mmu_hooks/cancel_print.cfg` | calls `_END_JOB REASON=cancel` | |
+| `macros/motion/homing_conditional.cfg` | `_CG28` shows the homing state only while it actually homes, then returns to the previous state | It used to flash homing, then "ready", even when no homing was needed, and left the LEDs at "ready" in the middle of a print start |
+| `macros/state/status_leds.cfg` | Happy Hare's print-state hook enters `paused` / `printing` through `_SET_STATE` | One path for every state change |
+| `macros/motion/park.cfg`, `macros/accessories/heatsoak.cfg` | wrapped in `SAVE_GCODE_STATE` / `RESTORE_GCODE_STATE`, with `G90` set explicitly | They assumed absolute positioning and left `G90` set behind them |
+| `END_PRINT`, `POST_START_PRINT` | read `_JOB.chamber_temp`, not `START_PRINT`'s own variable | Job settings stored once |
+
+Expected differences in the expanded G-code (simulator): the filter is
+explicitly switched off on entering `leveling` and, for prints without a chamber
+target, on entering `printing` (it was already off); a cancel now also runs
+`TURN_OFF_HEATERS`/`M107` (Happy Hare had already done both); `M400` moves to the
+start of the end-of-job sequence. Everything else is unchanged.
+
+`_POST_SENSORLESS` keeps its explicit `G91` … `G90` rather than saving gcode
+state: it runs inside homing, where the original author had commented
+save/restore out.
+
+Checks:
+
+- [ ] **M1** A print start, then a completed print: LEDs, case light and filter behave as before (filter on during a chamber soak, off while levelling, working speed while printing an ABS/ASA job, 10-minute run-on afterwards)
+- [ ] **M2** Cancel a print: park, lights and LEDs off, filter off
+- [ ] **M3** Run `POST_START_PRINT` alone from the console: it refuses with the job-phase message
+- [ ] **M4** Run `_JOB` from the console at any point: it prints the job phase and machine state
