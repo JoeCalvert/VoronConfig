@@ -700,3 +700,27 @@ Checks:
 | `macros/workflows/filament_tests.cfg` | After a Wide (or Fine 0.01–0.06) PA pick, the result dialog makes "Fine PA test around …" the primary button; after a fine pick, the EM test. `cal_last` records the range | Ellis's PA method is two-phase: find the area, then narrow down |
 
 - [ ] **Q1** After picking from a Wide PA test, the highlighted button is the fine test around your pick
+
+## PR #34: PrusaSlicer presets generated from one source and Spoolman; nozzle type; max flow test; bypass
+
+| File | Change | Reason |
+|---|---|---|
+| `slicer/profiles.py`, `slicer/base/*.ini` (new), `tools/build_slicer_profiles.py` (new) | All PrusaSlicer printer, print and filament presets are generated. Settings live once, in `profiles.py`; filaments come from Spoolman; machine limits from `config/machine.cfg`. See `docs/slicer.md` | PrusaSlicer user presets can't inherit from each other, so every value was copied by hand, and the copies had drifted apart |
+| (presets) | Start G-code is the current one (the old presets' `MATERIALS=` version is refused by `START_PRINT`); no M600 (colour change and pause use `PAUSE_FOR_USER`); `MMU_UPDATE_HEIGHT` instead of the internal `_MMU_UPDATE_HEIGHT`; every tool retracts the same (T0 differed); the 0.60/0.80 "MMU" printers are real 8-tool printers; overhang speeds the right way round; travel within `max_velocity`; machine limits for time estimates from `machine.cfg` (travel was 1500); arc fitting off; supports off by default; chamber temperature set for ABS/ASA (it was 0 everywhere, so no chamber soak ever ran) | Findings from the bundle review |
+| (presets) | Pressure advance is generated per nozzle in each filament's start G-code from its Spoolman values; a value for every nozzle, so a tool change never keeps the previous filament's PA. Hard-coded `SET_ACTIVE_SPOOL` removed | The old `;{elsif …}` lines meant to disable values were still evaluated by PrusaSlicer; `SET_ACTIVE_SPOOL` fought Happy Hare's own spool tracking |
+| `tools/spoolman_tuning.py` (new) | `setup` creates the Spoolman fields; `set` saves a result to a spool's filament; `import-bundle` copies PA/EM/flow/fan/retraction from an exported bundle into Spoolman | Spoolman is the master copy of filament tuning |
+| `macros/workflows/filament_tests.cfg`, `tools/calib_gcode.py` | Results are saved to the gate's filament in Spoolman; PA per nozzle key (`pa_0_60_hf`). New **max flow test** (`CAL_FILAMENT TEST=flow`): single wall in rising-flow bands, saved with a 10 % margin | One place for tuning; flow limits were guesses |
+| `macros/print/start_print.cfg`, `nozzle_change.cfg`, `menu.cfg`, `config/variables.cfg` | `NOZZLE_SET DIAMETER= TYPE=brass\|hf\|obxidian`; the nozzle-change dialog offers your nozzles (`variable_nozzles`, replaces `nozzle_sizes`; 0.50 dropped as no preset used it); `START_PRINT NOZZLE_TYPE=` refuses a file sliced for another nozzle type | HF and brass 0.60 need different presets and PA |
+| `macros/workflows/bypass.cfg` (new), `menu.cfg`, `retune.cfg` | MENU → Bypass: select, load, unload. RETUNE → Selector: calibrate the bypass position | Easy bypass printing, with the "(bypass)" printer presets |
+| `.github/workflows/check.yml`, `slicer/test_spoolman_filaments.json` | CI builds the presets and the three test prints | Catches a broken `profiles.py` |
+
+Checks:
+
+- [ ] **S1** After deploying: `NOZZLE_SET DIAMETER=<fitted> TYPE=<brass/hf/obxidian>` (or MENU → Change the nozzle). Until then the printer assumes brass, and an HF file is refused
+- [ ] **S2** On the Pi: `python3 ~/printer_data/config/tools/spoolman_tuning.py setup`; Spoolman shows the new filament fields
+- [ ] **S3** `import-bundle` with your exported bundle: check the matches, fix any "NO MATCH" names in Spoolman, then `--apply`
+- [ ] **S4** Build into PrusaSlicer (`docs/slicer.md`, step 4); the printers, prints and filaments appear under User presets, and "Send to printer" works
+- [ ] **S5** Slice something with two filaments on the HF printer: the file has `NOZZLE_TYPE=hf`, a `CHAMBER=` value for ABS/ASA, and a `SET_PRESSURE_ADVANCE` after each tool change. (Only checked here with PrusaSlicer 2.7 without the chamber expression: the 2.9 chamber line is untested)
+- [ ] **S6** A short print from the new presets prints normally; compare speed and quality with the old Standard preset
+- [ ] **S7** MENU → Bypass with the bypass calibrated: select, load, print with a "(bypass)" printer, unload
+- [ ] **S8** `CAL_FILAMENT TEST=flow` on the HF nozzle: the wall changes from smooth to rough partway up; pick the band; the console shows it saved to Spoolman

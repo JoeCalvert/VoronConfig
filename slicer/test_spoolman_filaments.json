@@ -1,0 +1,8 @@
+[
+ {"id": 3, "name": "eSun ABS+ - Fire Engine Red", "material": "ABS", "vendor": {"name": "eSun"}, "density": 1.06, "diameter": 1.75, "color_hex": "c8102e", "settings_extruder_temp": 245, "settings_bed_temp": 110, "price": 17, "weight": 1000, "spool_weight": 220,
+  "extra": {"pa_0_40": "0.033", "pa_0_60_hf": "0.03", "extrusion_multiplier": "0.965"}},
+ {"id": 5, "name": "SUNLU PLA - Red", "material": "PLA", "vendor": {"name": "SUNLU"}, "density": 1.23, "color_hex": "ff0000", "settings_extruder_temp": 220, "settings_bed_temp": 60, "extra": {"max_flow": "18", "fan_max": "100"}},
+ {"id": 7, "name": "eSun eTPU-95A - Black", "material": "TPU", "vendor": {"name": "eSun"}, "density": 1.21, "color_hex": "000000", "extra": {}},
+ {"id": 8, "name": "Mystery", "material": "PEEK", "extra": {}},
+ {"id": 9, "name": "SUNLU PLA - red", "material": "PLA", "extra": {}}
+]

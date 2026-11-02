@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+"""Build this printer's PrusaSlicer presets from slicer/profiles.py and Spoolman.
+
+    # straight into PrusaSlicer (close PrusaSlicer first; it reads presets at start)
+    python3 tools/build_slicer_profiles.py --spoolman http://voron.local:7912 \\
+        --prusaslicer "%APPDATA%/PrusaSlicer"          # Windows
+    #   ~/Library/Application Support/PrusaSlicer       # macOS
+    #   ~/.config/PrusaSlicer                            # Linux
+
+    # or just look at what it would write
+    python3 tools/build_slicer_profiles.py --spoolman http://voron.local:7912 --out /tmp/presets
+
+It writes ordinary (user) presets: printer/*.ini, print/*.ini, filament/*.ini.
+PrusaSlicer's own inheritance only works from its built-in vendor profiles, so
+the layering happens here and every preset is written in full. A manifest in
+each folder lists what the generator wrote; on the next build, presets it
+wrote before and no longer produces (e.g. a filament deleted in Spoolman)
+are removed. Presets you made yourself are never touched.
+
+Filaments come from Spoolman: one preset per Spoolman filament, named exactly
+as in Spoolman, which is what Happy Hare matches tools to gates by. Values a
+filament doesn't have in Spoolman come from MATERIALS in slicer/profiles.py.
+Spoolman extra fields used (tools/spoolman_tuning.py setup creates them):
+    extrusion_multiplier, max_flow, fan_min, fan_max, chamber_temp,
+    retract_length, pa_<nozzle> (pa_0_40, pa_0_60_hf, ...)
+
+Only the Python standard library is used, so it runs on the Pi or a PC.
+"""
+
+import argparse
+import ast
+import glob
+import importlib.util
+import json
+import os
+import re
+import sys
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MANIFEST = '.voronconfig_generated.json'
+PER_TOOL = ['deretract_speed', 'extruder_offset', 'max_layer_height', 'min_layer_height', 'nozzle_diameter',
+            'nozzle_high_flow', 'retract_before_travel', 'retract_before_wipe', 'retract_layer_change',
+            'retract_length', 'retract_length_toolchange', 'retract_lift', 'retract_lift_above',
+            'retract_lift_below', 'retract_restart_extra', 'retract_restart_extra_toolchange',
+            'retract_speed', 'travel_lift_before_obstacle', 'travel_max_lift', 'travel_ramping_lift',
+            'travel_slope', 'wipe']
+
+
+# ---------------------------------------------------------------- inputs
+
+def load_profiles(path):
+    spec = importlib.util.spec_from_file_location('profiles', path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def read_ini(path):
+    out = {}
+    for line in open(path, encoding='utf-8'):
+        line = line.rstrip('\n')
+        if not line or line.startswith('#'):
+            continue
+        k, _, v = line.partition(' = ')
+        if not _:
+            k, v = line.rstrip(' ='), ''
+        out[k] = v
+    return out
+
+
+def klipper_value(cfg_text, section, key):
+    m = re.search(r'^\[%s\]\s*$(.*?)(?=^\[|\Z)' % re.escape(section), cfg_text, re.M | re.S)
+    if m:
+        k = re.search(r'^%s\s*[:=]\s*([^#\n]+)' % re.escape(key), m.group(1), re.M)
+        if k:
+            return k.group(1).strip()
+    return None
+
+
+def machine_limits(root):
+    text = open(os.path.join(root, 'config', 'machine.cfg')).read()
+    get = lambda k, d: float(klipper_value(text, 'printer', k) or d)
+    return dict(accel=get('max_accel', 7000), velocity=get('max_velocity', 400),
+                z_velocity=get('max_z_velocity', 30), z_accel=get('max_z_accel', 500))
+
+
+def preheat_materials(root):
+    text = open(os.path.join(root, 'config', 'variables.cfg')).read()
+    m = re.search(r'^variable_preheat_materials:\s*(\{[^}]*\})', text, re.M)
+    return ast.literal_eval(m.group(1)) if m else {}
+
+
+def printer_nozzles(root):
+    """variable_nozzles from config/variables.cfg as nozzle keys, e.g. '0.60_hf'."""
+    text = open(os.path.join(root, 'config', 'variables.cfg')).read()
+    m = re.search(r'^variable_nozzles:\s*(\[.*\])', text, re.M)
+    if not m:
+        return None
+    suffix = {'brass': '', 'hf': '_hf', 'obxidian': '_obx'}
+    return sorted('%.2f%s' % (float(d), suffix[t]) for d, t in ast.literal_eval(m.group(1)))
+
+
+def spoolman_filaments(url=None, json_path=None):
+    if json_path:
+        data = json.load(open(json_path))
+    else:
+        with urllib.request.urlopen(url.rstrip('/') + '/api/v1/filament', timeout=15) as r:
+            data = json.load(r)
+    for f in data:                       # extra values are JSON-encoded strings
+        extra = {}
+        for k, v in (f.get('extra') or {}).items():
+            try:
+                extra[k] = json.loads(v)
+            except (TypeError, ValueError):
+                extra[k] = v
+        f['extra'] = extra
+    return data
+
+
+# ---------------------------------------------------------------- helpers
+
+def fmt(v):
+    if isinstance(v, bool):
+        return '1' if v else '0'
+    if isinstance(v, float):
+        return ('%.4f' % v).rstrip('0').rstrip('.') if v != int(v) else str(int(v))
+    return str(v)
+
+
+def nozzle_key_field(key):
+    return 'pa_' + key.replace('.', '_')        # 0.60_hf -> pa_0_60_hf (Spoolman keys: [a-z0-9_])
+
+
+def size_tag(d):
+    return '%.2f' % d
+
+
+def write_preset(folder, name, cfg, written, ours, backups):
+    os.makedirs(folder, exist_ok=True)
+    safe = re.sub(r'[\\/:*?"<>|]', '_', name)
+    path = os.path.join(folder, safe + '.ini')
+    if os.path.exists(path) and safe + '.ini' not in ours:      # a preset you made, same name
+        os.replace(path, path + '.bak')
+        backups.append(os.path.join(os.path.basename(folder), safe + '.ini.bak'))
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write('# generated by tools/build_slicer_profiles.py from slicer/profiles.py: edit those, not this\n')
+        for k in sorted(cfg):
+            f.write('%s = %s\n' % (k, fmt(cfg[k])))
+    written.append(safe + '.ini')
+
+
+def manifest(folder):
+    man = os.path.join(folder, MANIFEST)
+    return json.load(open(man)) if os.path.exists(man) else []
+
+
+def clean_stale(folder, written):
+    man = os.path.join(folder, MANIFEST)
+    old = manifest(folder)
+    removed = []
+    for f in old:
+        if f not in written and os.path.exists(os.path.join(folder, f)):
+            os.remove(os.path.join(folder, f))
+            removed.append(f)
+    json.dump(sorted(written), open(man, 'w'), indent=1)
+    return removed
+
+
+# ---------------------------------------------------------------- presets
+
+def accel_value(v, limits):
+    return int(round(v * limits['accel'] / 100.0) * 100) if v <= 1.5 else int(v)
+
+
+def printers(P, base, limits):
+    out = {}
+    chamber_mmu = ('{max(max(max((is_extruder_used[0] ? chamber_temperature[0] : 0), (is_extruder_used[1] ? chamber_temperature[1] : 0)), '
+                   'max((is_extruder_used[2] ? chamber_temperature[2] : 0), (is_extruder_used[3] ? chamber_temperature[3] : 0))), '
+                   'max(max((is_extruder_used[4] ? chamber_temperature[4] : 0), (is_extruder_used[5] ? chamber_temperature[5] : 0)), '
+                   'max((is_extruder_used[6] ? chamber_temperature[6] : 0), (is_extruder_used[7] ? chamber_temperature[7] : 0))))}')
+    if P.GATES != 8:
+        sys.exit('build_slicer_profiles: the chamber expression assumes 8 gates')
+    for n in P.NOZZLES:
+        for bypass in (False, True):
+            tools = 1 if bypass else P.GATES
+            cfg = dict(base)
+            cfg.update(P.PRINTER)
+            d = n['d']
+            per_tool = dict(
+                nozzle_diameter=d, nozzle_high_flow=1 if n['type'] == 'hf' else 0,
+                retract_length=n['retract'], retract_lift=n['lift'], travel_max_lift=round(n['lift'] * 2, 2),
+                min_layer_height=round(d * 0.2, 3), max_layer_height=round(d * 0.75, 3), extruder_offset='0x0')
+            for k in PER_TOOL:
+                v = per_tool.get(k, cfg.get(k))
+                v = fmt(v).split(',')[0]
+                cfg[k] = ','.join([v] * tools)
+            cfg['extruder_colour'] = ';'.join([''] * tools) if tools > 1 else '""'
+            cfg['single_extruder_multi_material'] = 0 if bypass else 1
+            cfg['printer_notes'] = 'VORONCONFIG;NOZZLE=%s;%s' % (n['key'], 'BYPASS;' if bypass else 'MMU;')
+            cfg['start_gcode'] = (P.START_GCODE_MMU.replace('@NOZZLE_TYPE@', n['type'])
+                                  .replace('@CHAMBER@', '{chamber_temperature[0]}' if bypass else chamber_mmu)
+                                  .replace('\n', '\\n'))
+            cfg['end_gcode'] = P.PRINTER['end_gcode'].replace('\n', '\\n')
+            cfg['layer_gcode'] = P.PRINTER['layer_gcode'].replace('\n', '\\n')
+            a, v = int(limits['accel']), int(limits['velocity'])
+            cfg.update(machine_max_acceleration_x=a, machine_max_acceleration_y=a,
+                       machine_max_acceleration_extruding=a, machine_max_acceleration_travel='%d,%d' % (a, a),
+                       machine_max_acceleration_retracting=5000, machine_max_acceleration_z=int(limits['z_accel']),
+                       machine_max_feedrate_x=v, machine_max_feedrate_y=v,
+                       machine_max_feedrate_z=int(limits['z_velocity']))
+            cfg['default_print_profile'] = '%smm Standard @%s%s' % (
+                size_tag(P.INTENTS[1]['layers'].get(d, 0.2)), size_tag(d), ' HF' if n['type'] == 'hf' else '')
+            cfg['default_filament_profile'] = ''
+            cfg['inherits'] = ''
+            cfg['printer_settings_id'] = ''
+            name = P.PRINTER_NAME.format(name=n['name']) + (' (bypass)' if bypass else '')
+            out[name] = cfg
+    return out
+
+
+def prints(P, base, limits):
+    out = {}
+    groups = {}                                   # (diameter, high flow) -> nozzle entries
+    for n in P.NOZZLES:
+        groups.setdefault((n['d'], n['type'] == 'hf'), []).append(n)
+    for (d, hf), ns in sorted(groups.items()):
+        flow = min(n['max_flow'] for n in ns)
+        cond = 'nozzle_diameter[0]==%s and %snozzle_high_flow[0]' % (fmt(d), '' if hf else '!')
+        for intent in P.INTENTS:
+            layer = intent['layers'].get(d)
+            if layer is None:
+                continue
+            cfg = dict(base)
+            cfg.update(P.PRINT)
+            for k, ratio in P.ACCEL.items():
+                cfg[k] = ratio
+            cfg.update(intent['set'])
+            for k in list(P.ACCEL) + [k for k in intent['set'] if k.endswith('_acceleration')]:
+                if isinstance(cfg[k], (int, float)):
+                    cfg[k] = accel_value(float(cfg[k]), limits)
+            for k, ratio in P.WIDTHS.items():
+                cfg[k] = round(d * ratio, 2)
+            cfg['layer_height'] = layer
+            cfg['first_layer_height'] = P.FIRST_LAYER_HEIGHT[d]
+            cfg['max_volumetric_speed'] = flow
+            for k in ('travel_speed', 'max_print_speed'):
+                cfg[k] = min(float(cfg[k]), limits['velocity'])
+            cfg['compatible_printers'] = ''
+            cfg['compatible_printers_condition'] = cond
+            cfg['inherits'] = ''
+            cfg['print_settings_id'] = ''
+            name = '%smm %s @%s%s' % (size_tag(layer), intent['name'], size_tag(d), ' HF' if hf else '')
+            out[name] = cfg
+    return out
+
+
+def material_of(P, f):
+    m = (f.get('material') or '').strip().upper()
+    m = P.MATERIAL_ALIASES.get(m, m)
+    return m if m in P.MATERIALS else None
+
+
+def filaments(P, base, spool, preheat):
+    out, problems = {}, []
+    names = {}
+    for f in spool:
+        if f.get('archived'):
+            continue
+        name = (f.get('name') or '').strip()
+        mat = material_of(P, f)
+        if not name:
+            problems.append('Spoolman filament %s has no name: skipped' % f.get('id'))
+            continue
+        if mat is None:
+            problems.append('%s: material %r has no MATERIALS entry in slicer/profiles.py: skipped'
+                            % (name, f.get('material')))
+            continue
+        if name.lower() in names:
+            problems.append('%s: two Spoolman filaments have this name (ids %s and %s); Happy Hare can\'t tell '
+                            'them apart, so only the first is written' % (name, names[name.lower()], f.get('id')))
+            continue
+        names[name.lower()] = f.get('id')
+        M, x = P.MATERIALS[mat], f['extra']
+        cfg = dict(base)
+        cfg.update(P.FILAMENT)
+        temp = int(f.get('settings_extruder_temp') or M['temperature'])
+        bed = int(f.get('settings_bed_temp') or M['bed_temperature'])
+        fan_min, fan_max = M['fan']
+        chamber = x.get('chamber_temp', preheat.get(mat, [0, 0])[1] if mat in preheat else 0)
+        retract = x.get('retract_length', M.get('retract_length'))
+        price, weight = f.get('price'), f.get('weight')
+        cfg.update(
+            filament_type=M['filament_type'],
+            filament_vendor=(f.get('vendor') or {}).get('name') or '(Unknown)',
+            filament_colour='#' + (f.get('color_hex') or 'FFFFFF')[:6].upper(),
+            filament_density=f.get('density') or base.get('filament_density'),
+            filament_diameter=f.get('diameter') or 1.75,
+            filament_spool_weight=f.get('spool_weight') or 0,
+            filament_cost=round(price / weight * 1000, 2) if price and weight else 0,
+            temperature=temp, first_layer_temperature=temp,
+            bed_temperature=bed, first_layer_bed_temperature=bed,
+            chamber_temperature=int(chamber or 0), chamber_minimal_temperature=0,
+            extrusion_multiplier=float(x.get('extrusion_multiplier', M['em'])),
+            filament_max_volumetric_speed=float(x.get('max_flow', M['max_flow'])),
+            min_fan_speed=int(x.get('fan_min', fan_min)), max_fan_speed=int(x.get('fan_max', fan_max)),
+            bridge_fan_speed=M['bridge_fan'], disable_fan_first_layers=M['disable_fan_first_layers'],
+            slowdown_below_layer_time=M['slowdown_below_layer_time'], min_print_speed=M['min_print_speed'],
+            filament_retract_length=retract if retract is not None else 'nil',
+            inherits='', filament_settings_id='',
+        )
+        # Pressure advance per nozzle, picked by the printer preset's notes tag
+        lines, sources = [], []
+        for i, n in enumerate(P.NOZZLES):
+            measured = x.get(nozzle_key_field(n['key']))
+            pa = measured if measured is not None else M.get('pa', {}).get(n['key'], P.GENERIC_PA[n['key']])
+            sources.append('%s=%s%s' % (n['key'], fmt(float(pa)), '' if measured is not None else '(default)'))
+            lines.append('{%s printer_notes=~/.*NOZZLE=%s;.*/}SET_PRESSURE_ADVANCE ADVANCE=%s'
+                         % ('if' if i == 0 else 'elsif', n['key'].replace('.', '[.]'), fmt(float(pa))))
+        cfg['start_filament_gcode'] = '"' + '\\n'.join(lines + ['{endif}']) + '\\n"'
+        cfg['filament_notes'] = '"Generated from Spoolman filament %s. PA %s"' % (f.get('id'), ' '.join(sources))
+        out[name] = cfg
+    return out, problems
+
+
+def add_to_physical_printer(dest, name, printers):
+    """Let a PrusaSlicer physical printer (its host, API key...) use the generated
+    printer presets. Only the preset list lines are changed."""
+    path = os.path.join(dest, 'physical_printer', name + '.ini')
+    if not os.path.exists(path):
+        print('NOTE: no physical printer "%s" in %s; add the printers to it in PrusaSlicer' % (name, dest))
+        return
+    lines = open(path, encoding='utf-8').read().split('\n')
+    have = []
+    for l in lines:
+        if l.startswith('preset_names = '):
+            have = [x.strip().strip('"') for x in l.split(' = ', 1)[1].split(';') if x.strip()]
+    keep = [h for h in have if h not in printers]
+    names = keep + printers
+    out = []
+    for l in lines:
+        if l.startswith('preset_names = '):
+            l = 'preset_names = ' + ';'.join('"%s"' % n for n in names)
+        elif l.startswith('preset_name = '):
+            l = 'preset_name = ' + ';'.join(names)
+        out.append(l)
+    open(path, 'w', encoding='utf-8', newline='\n').write('\n'.join(out))
+    print('physical printer "%s" can now use the %d generated printers' % (name, len(printers)))
+
+
+# ---------------------------------------------------------------- main
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument('--spoolman', help='Spoolman URL, e.g. http://voron.local:7912')
+    src.add_argument('--spoolman-json', help='a saved GET /api/v1/filament response (for testing)')
+    dst = ap.add_mutually_exclusive_group(required=True)
+    dst.add_argument('--prusaslicer', help="PrusaSlicer's configuration folder (Help > Show Configuration Folder)")
+    dst.add_argument('--out', help='write here instead')
+    ap.add_argument('--physical-printer', metavar='NAME', help='with --prusaslicer: add the printers to this '
+                    'physical printer (e.g. Voron), so "Send to printer" works with them')
+    ap.add_argument('--root', default=ROOT, help='config repo (default: this one)')
+    a = ap.parse_args()
+
+    P = load_profiles(os.path.join(a.root, 'slicer', 'profiles.py'))
+    limits = machine_limits(a.root)
+    base = {t: read_ini(os.path.join(a.root, 'slicer', 'base', t + '.ini')) for t in ('printer', 'print', 'filament')}
+    spool = spoolman_filaments(a.spoolman, a.spoolman_json)
+    fil, problems = filaments(P, base['filament'], spool, preheat_materials(a.root))
+    sets = {'printer': printers(P, base['printer'], limits), 'print': prints(P, base['print'], limits), 'filament': fil}
+
+    dest = os.path.expanduser(os.path.expandvars(a.prusaslicer or a.out))
+    if a.prusaslicer and not os.path.isdir(os.path.join(dest, 'print')):
+        sys.exit('build_slicer_profiles: %s has no print/ folder. Is it PrusaSlicer\'s configuration folder?' % dest)
+    backups = []
+    for t, presets in sets.items():
+        folder = os.path.join(dest, t)
+        written, ours = [], manifest(folder)
+        for name, cfg in presets.items():
+            write_preset(folder, name, cfg, written, ours, backups)
+        removed = clean_stale(folder, written)
+        print('%-8s %3d written%s' % (t, len(written), ('; removed ' + ', '.join(removed)) if removed else ''))
+    for b in backups:
+        print('NOTE: replaced your own preset of the same name; the old one is kept as', b)
+    if a.physical_printer:
+        add_to_physical_printer(dest, a.physical_printer, sorted(sets['printer']))
+    print('limits from config/machine.cfg: accel %d, velocity %d' % (limits['accel'], limits['velocity']))
+    on_printer = printer_nozzles(a.root)
+    in_slicer = sorted(n['key'] for n in P.NOZZLES)
+    if on_printer is not None and on_printer != in_slicer:
+        problems.append('nozzles differ: config/variables.cfg has %s, slicer/profiles.py has %s. '
+                        'Keep them the same: PA results are stored per nozzle' % (on_printer, in_slicer))
+    for p in problems:
+        print('NOTE:', p)
+    if a.prusaslicer:
+        print('Start PrusaSlicer: the presets are under "User presets".')
+
+
+if __name__ == '__main__':
+    main()
