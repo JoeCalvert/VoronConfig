@@ -8,3 +8,4 @@ moonraker-obico.cfg
 printer-*_*.cfg
 *.old-*
 mmu_klipperscreen.conf.0*
+__pycache__/
