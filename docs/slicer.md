@@ -50,6 +50,16 @@ END_PRINT
 `MMU_END` cuts and unloads the filament (`unload_tool` is on); `END_PRINT` then
 parks and shuts down.
 
+### Pause Print G-code
+
+```
+PAUSE_FOR_USER
+```
+
+When you add a pause in the layer preview, PrusaSlicer writes your message as
+an `M117` line just before this, and `PAUSE_FOR_USER` shows it in the pause
+dialog (Resume / Service position / Cancel) and the notification.
+
 ### Tool change G-code
 
 ```

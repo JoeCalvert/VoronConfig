@@ -11,6 +11,7 @@ def make_state(**o):
       'toolhead': D(position=D(x=175, y=175, z=10, e=0), axis_maximum=D(x=353, y=359, z=330), axis_minimum=D(x=0,y=0,z=-15), homed_axes='xyz'),
       'heater_bed': D(temperature=25, target=0),
       'idle_timeout': D(state='Idle'),
+      'display_status': D(message='', progress=0),
       'extruder': D(temperature=25, target=0),
       'temperature_sensor Chamber': D(temperature=45),
       'save_variables': D(variables=D(nozzle_diameter=0.6)),

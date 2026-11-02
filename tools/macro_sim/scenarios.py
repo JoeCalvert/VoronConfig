@@ -28,7 +28,7 @@ SCENARIOS = [
  ('recovery_parked_runout', dict(mmu=MMU(print_state='pause_locked', filament_pos=0, tool=1, gate=1, reason_for_pause='Runout')), ['_MMU_RECOVERY', '_MMU_RECOVERY_GATES TOOL=1']),
  ('recovery_ready', dict(mmu=MMU(print_state='paused', filament_pos=10, tool=2, next_tool=2), extruder=D(temperature=240, target=240)), ['_MMU_RECOVERY', '_MMU_RECOVERY_RESUME']),
  ('recovery_resume_refused', dict(mmu=MMU(print_state='paused', filament_pos=10, tool=1, next_tool=2)), ['_MMU_RECOVERY_RESUME']),
- ('recovery_step', dict(mmu=MMU(print_state='pause_locked', filament_pos=0, next_tool=2)), ['_MMU_RECOVERY_DO STEP=remap TOOL=2 GATE=1', '_MMU_RECOVERY_CANCEL', '_MMU_RECOVERY_CANCEL_NOW']),
+ ('recovery_step', dict(mmu=MMU(print_state='pause_locked', filament_pos=0, next_tool=2)), ['_MMU_RECOVERY_DO STEP=remap TOOL=2 GATE=1', '_CONFIRM_CANCEL BACK=_MMU_RECOVERY', '_CANCEL_NOW']),
  ('checkup', dict(), ['MMU_CHECKUP GATES=1']),
  ('checkup_printing', dict(print_stats=D(state='printing')), ['MMU_CHECKUP']),
  ('service', dict(toolhead=D(position=D(x=175, y=355, z=12, e=0), axis_maximum=D(x=353,y=359,z=330), homed_axes='xyz')), ['SERVICE_POSITION']),
@@ -45,6 +45,12 @@ SCENARIOS = [
  ('nozzle_change', dict(), ['NOZZLE_CHANGE', '_NOZZLE_CHANGE_PREPARE', '_NOZZLE_CHANGE_DONE DIAMETER=0.4']),
  ('spool_swap', dict(mmu=MMU(print_state='ready')), ['SPOOL_SWAP', '_SPOOL_SWAP_EJECT GATE=1', '_SPOOL_SWAP_PRELOAD GATE=1']),
  ('spool_swap_empty_gate', dict(mmu=MMU(print_state='ready')), ['SPOOL_SWAP GATE=2', '_SPOOL_SWAP_RESULT GATE=2']),
+ ('mmu_error_hook', dict(mmu=MMU(print_state='pause_locked', filament_pos=3, next_tool=1, reason_for_pause='Failed to load')), ['_MMU_RECOVERY NOTIFY=1']),
+ ('pause_for_user', dict(display_status=D(message="Insert magnets now; it's layer 12")), ['PAUSE_FOR_USER', '_PAUSE_FOR_USER_SERVICE', '_CONFIRM_CANCEL BACK=_PAUSE_FOR_USER_SHOW', '_PAUSE_FOR_USER_RESUME']),
+ ('pause_next_layer', dict(print_stats=D(state='printing', filename='x.gcode')), ['MENU', '_PAUSE_NEXT_LAYER', '_PAUSE_LAYER_REACHED']),
+ ('part_ready', dict(heater_bed=D(temperature=35, target=0)), ['SET_GCODE_VARIABLE MACRO=_JOB VARIABLE=phase VALUE="\'complete\'"', '_PART_READY_CHECK']),
+ ('part_still_hot', dict(heater_bed=D(temperature=80, target=0)), ['SET_GCODE_VARIABLE MACRO=_JOB VARIABLE=phase VALUE="\'complete\'"', '_PART_READY_CHECK']),
+ ('notify_on', dict(), ['SET_GCODE_VARIABLE MACRO=_USER_VARIABLES VARIABLE=notifier_name VALUE="\'phone\'"', '_NOTIFY MSG="Test"']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 

@@ -523,3 +523,29 @@ Checks:
 - [ ] **W1** `NOZZLE_CHANGE` with filament loaded: it unloads, turns the heater off and moves to the front. Picking a size records it (`NOZZLE_SET` with no arguments shows it)
 - [ ] **W2** `SPOOL_SWAP` on a loaded gate: unload, eject, then after scanning and preloading the dialog shows the new spool's material and name
 - [ ] **W3** Preload with the filament not pushed in far enough: "Try again" appears
+
+## PR #26: planned pauses, "safe to remove" and notifications
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/workflows/pause_for_user.cfg` (new) | `PAUSE_FOR_USER [MSG=]`: pauses with a dialog showing why (the slicer's `M117` message by default): Resume / Service position / Cancel. MENU "Pause at the next layer" uses it through Happy Hare's `SET_PAUSE_NEXT_LAYER` | A planned pause that says what to do |
+| `docs/slicer.md` | Pause Print G-code: `PAUSE_FOR_USER` | **Slicer change** |
+| `macros/print/part_ready.cfg` (new) | After a completed print, once the bed is below `part_ready_bed_temp` (40), machine state `part_ready` (part-ready LEDs) and a notification | Know when the part can come off |
+| `macros/state/machine_state.cfg` | machine state `part_ready` | |
+| `macros/system/notify.cfg` (new) | `_NOTIFY MSG=`: console message, and a push notification through Moonraker's notifier when `notifier_name` is set | Off until you configure it (docs/notifications.md) |
+| MMU error, failed print, preflight wait, planned pause, part ready | each sends `_NOTIFY` | The moments that need you at the machine |
+| `mmu/base/mmu_macro_vars.cfg` + `mmu/.mmu_config` | `user_mmu_error_extension: _MMU_RECOVERY NOTIFY=1` | Only the hook notifies, not Refresh or the menu |
+| `macros/ui/confirm.cfg` (new) | `_CONFIRM_CANCEL BACK=<macro>`, used by the recovery, preflight and pause dialogs | One cancel confirmation instead of three |
+| `config/variables.cfg` | `part_ready_bed_temp: 40`, `notifier_name: ""` | |
+| `docs/notifications.md` (new) | Moonraker notifier set-up (secrets file, two notifier sections) | |
+
+Simulator: `start_*` (completed prints) end by arming the part-ready check.
+The recovery cancel goes through `_CONFIRM_CANCEL`. New scenarios for the
+error hook, planned pauses, part-ready and a notification. Nothing else changed.
+
+Checks:
+
+- [ ] **N1** Set PrusaSlicer's Pause Print G-code to `PAUSE_FOR_USER`, add a pause with a message to a test print: the dialog shows the message, and Resume carries on
+- [ ] **N2** MENU during a print → "Pause at the next layer" pauses at the next layer change with the dialog
+- [ ] **N3** After a completed print, the LEDs switch to part-ready once the bed is below 40°C
+- [ ] **N4** (Optional) Set up a notifier (docs/notifications.md). `_NOTIFY MSG="Test"` reaches your phone, and so do an MMU error and part-ready

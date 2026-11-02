@@ -92,7 +92,8 @@ class Sim:
             def raise_error(msg): raise RuntimeError(msg)
             t = ENV.from_string(self.macros[cmd]['gcode'])
             txt = t.render(params=params, rawparams=rest, printer=self.printer(),
-                           action_raise_error=raise_error, action_respond_info=lambda m: '')
+                           action_raise_error=raise_error, action_respond_info=lambda m: '',
+                           action_call_remote_method=lambda m, **kw: 'REMOTE %s %s' % (m, sorted(kw.items())))
             self.out.append(('  ' * depth) + '> ' + cmd + (' ' + rest if rest else ''))
             for l in txt.split('\n'):
                 if l.strip(): self.run(l, depth + 1)
