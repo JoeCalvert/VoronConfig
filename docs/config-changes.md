@@ -156,3 +156,28 @@ Checks:
 
 - [ ] **K1** After a Klipper restart the console shows no `CHECK_CONFIG error` lines. Run `CHECK_CONFIG` by hand: it reports OK (the nozzle warning goes away after `NOZZLE_SET`)
 - [ ] **K2** Temporarily set `park_pause` to `50, 50, 5, 0, 2`, restart: the check reports it and `START_PRINT` refuses. Put it back
+
+## PR #8: remove dead and broken config
+
+Nothing here is used by the current macros. Some of it would fail if called.
+
+| Removed | Why |
+|---|---|
+| `macros/miscs/compatibility.cfg` (and its include) | Its `M204` override passed `ACCEL_TO_DECEL`, which Klipper removed, so any slicer `M204` errored. The `G00`–`G04` aliases are unneeded, and `G03` ran `G2` (the wrong direction). `M701`/`M702`/`M600` pointed at macros that don't exist. Klipper's own `M204` now applies |
+| `macros/helpers/nozzle_cleaning.cfg` | `CLEAN_NOZZLE` was only called by the test framework below, and it read `max_accel_to_decel`, which Klipper removed. Blobifier's brush does the wiping |
+| `macros/helpers/spoolman.cfg`, `klipper-spoolman.cfg` (and the duplicate include) | Happy Hare v4 sets the active spool on every toolchange |
+| `config/software/adaptive_purge.cfg` (`VORON_PURGE`), `macros/calibration/adaptive_bed_mesh.cfg` | Replaced by Blobifier's purge and Klipper's `BED_MESH_CALIBRATE ADAPTIVE=1` (PR #5) |
+| `macro_modules/` (and its include) | Unused macro-module test framework |
+| `config/software/virtual_gantry_backers.cfg`, `config/vgb_meshes.cfg`, the `SET_VGB` guards in `tilting.cfg` and `end_print.cfg` | VGB wasn't included, so the guards never ran |
+| `[include K-ShakeTune/*.cfg]` | Old Shake&Tune macro folder. Current Shake&Tune is the `[shaketune]` section in `config/software/shaketune.cfg`, which stays |
+| `variable_mod_mgr_loaded`, `variable_accel_to_decel_factor`, `variable_use_vgb`, the `ercf_enabled` read in `END_PRINT` | Only used by the removed pieces |
+| `printer-2024*.cfg`, `printer.cfg.old-*`, `moonraker.conf.old-*`, `mmu_klipperscreen.conf.0*` | Automatic backups. Now in `.gitignore`; still in git history |
+
+Kept for now: `mmu.V3/`, the reference for the measured v3 values, until the
+v4 calibration is done.
+
+Checks:
+
+- [ ] **D1** Klipper restarts without config errors, and `CHECK_CONFIG` passes
+- [ ] **D2** Spoolman still shows the active spool changing on a toolchange
+- [ ] **D3** If PrusaSlicer's "Color change G-code" is `M600`, change it to `PAUSE`. `M600` never worked here: it called a macro that doesn't exist

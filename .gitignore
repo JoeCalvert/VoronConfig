@@ -3,3 +3,8 @@ adxl_results/belts/*.csv
 adxl_results/vibrations/*.tar.gz
 moonraker-obico.cfg
 *.bkp
+
+# Automatic backups made by Klipper (SAVE_CONFIG) and the Happy Hare installer
+printer-*_*.cfg
+*.old-*
+mmu_klipperscreen.conf.0*
