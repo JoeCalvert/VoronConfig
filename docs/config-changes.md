@@ -277,3 +277,22 @@ Checks:
 | 37 files | CRLF → LF only | `git diff --ignore-cr-at-eol` shows no content change |
 
 No check needed on the printer: Klipper reads both.
+
+## PR #15: tidy the layout (no restructure needed)
+
+The plan ended with a moves-only restructure into a Klippain-style layout. The
+config already has that layout (`config/boards`, `config/hardware`,
+`config/software`, `macros/base`, `macros/hardware_functions`, `macros/helpers`,
+`macros/miscs`, plus `docs/`, `tools/`, `ukam/`), so moving files would be churn
+without benefit. This removes the leftovers instead.
+
+| Removed | Why |
+|---|---|
+| `macros/base/pause_resume.cfg`, `config/software/led_effects.cfg`, `config/software/display.cfg`, `config/hardware/display.cfg` (and their includes) | Empty (comments only). The alternative display config `display.cfg.mini12864` stays |
+| `config/save_variables.cfg` | Orphan: not the active `save_variables` file (Happy Hare's `mmu/mmu_vars.cfg` is), and nothing reads its two filter values |
+| `macros/helpers/temp_check.cfg` | `_LOW_TEMP_CHECK` is not called anywhere |
+| includes of `macros/base/probing/`, `macros/calibration/`, `scripts/` | Those folders don't exist |
+
+Checks:
+
+- [ ] **T2** Klipper restarts without config errors and `CHECK_CONFIG` passes
