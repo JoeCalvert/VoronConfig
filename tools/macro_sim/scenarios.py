@@ -51,6 +51,10 @@ SCENARIOS = [
  ('part_ready', dict(heater_bed=D(temperature=35, target=0)), ['SET_GCODE_VARIABLE MACRO=_JOB VARIABLE=phase VALUE="\'complete\'"', '_PART_READY_CHECK']),
  ('part_still_hot', dict(heater_bed=D(temperature=80, target=0)), ['SET_GCODE_VARIABLE MACRO=_JOB VARIABLE=phase VALUE="\'complete\'"', '_PART_READY_CHECK']),
  ('notify_on', dict(), ['SET_GCODE_VARIABLE MACRO=_USER_VARIABLES VARIABLE=notifier_name VALUE="\'phone\'"', '_NOTIFY MSG="Test"']),
+ ('maintenance', dict(), ['MAINTENANCE', '_MAINTENANCE_RESET ITEM=filter']),
+ ('maintenance_add', dict(), ['_MAINTENANCE_ADD FILTER=1', '_MAINTENANCE_ADD FILTER=0']),
+ ('calibrate', dict(quad_gantry_level=D(applied=False)), ['CALIBRATE', '_CAL_PID HEATER=extruder TARGET=240', '_CAL_SHAPER', '_CAL_MESH']),
+ ('check_dialog_problem', dict(save_variables=D(variables=D())), ['CHECK_CONFIG STARTUP=1']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 

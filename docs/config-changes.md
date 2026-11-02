@@ -549,3 +549,28 @@ Checks:
 - [ ] **N2** MENU during a print → "Pause at the next layer" pauses at the next layer change with the dialog
 - [ ] **N3** After a completed print, the LEDs switch to part-ready once the bed is below 40°C
 - [ ] **N4** (Optional) Set up a notifier (docs/notifications.md). `_NOTIFY MSG="Test"` reaches your phone, and so do an MMU error and part-ready
+
+## PR #27: maintenance counters, calibration menu, CHECK_CONFIG dialog
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/workflows/maintenance.cfg` (new) | `MAINTENANCE`: printing-hour counters per job, with a "Done" button each. `_END_JOB` adds each job's printing time (pauses excluded). The filter only counts jobs with a chamber temperature. Crossing an interval sends a notification, and MENU shows "Maintenance due (n)" | Routine jobs without remembering |
+| `config/variables.cfg` | `maintenance_items`: carbon 100 h, rails/belts 200 h, nozzle 300 h | **Starting points: set your own intervals** |
+| `macros/workflows/nozzle_change.cfg` | recording a new nozzle restarts its counter | |
+| `macros/workflows/calibrate.cfg` (new) | `CALIBRATE`: nozzle PID (at `print_default_extruder_temp`, just above the bed, part fan 25%), bed PID (at `print_default_bed_temp`), Shake&Tune input shaper and belts, full bed mesh. Each homes and runs QGL first if needed | The routine calibrations in one place |
+| same | PID results are shown to copy into `config/hardware/*.cfg` | The PID values live in included files, so `SAVE_CONFIG` refuses to override them |
+| `macros/state/startup_check.cfg` | `CHECK_CONFIG` also shows its result as a dialog: always when run by hand, and at startup when it finds errors | Errors that block `START_PRINT` are visible on the touchscreen |
+| `macros/ui/menu.cfg` | Calibrate and Maintenance buttons. `_CLOSE_AND_PARK` is shared by the workflow dialogs | |
+| `macros/system/dependencies.cfg` | Shake&Tune's `AXES_SHAPER_CALIBRATION`, `COMPARE_BELTS_RESPONSES` | |
+
+Simulator: completed and cancelled jobs add to the maintenance counters (one
+`SAVE_VARIABLE` line). `check` now also shows the dialog. New scenarios for
+maintenance, calibration and the startup dialog. Nothing else changed.
+
+Checks:
+
+- [ ] **M5** Set `maintenance_items` to your own intervals
+- [ ] **M6** After a print, `MAINTENANCE` shows its hours added (the filter only for chamber prints). "Done" restarts a counter
+- [ ] **M7** CALIBRATE → Nozzle PID: homes, levels, moves to the bed centre at Z 5, tunes, and shows kp/ki/kd. Copy them into `config/hardware/extruder.cfg`
+- [ ] **M8** CALIBRATE → Input shaper runs Shake&Tune, and the graphs appear in ShakeTune_results
+- [ ] **M9** Run `CHECK_CONFIG` from the console: the dialog lists the result

@@ -3,7 +3,8 @@ from macrosim import D
 # Commands other projects register (what printer.gcode.commands would list).
 COMMANDS = ['BEACON_HOME_Z_CONTACT', 'BEACON_MODEL_SELECT', 'BLOBIFIER_CLEAN', 'BLOBIFIER_PARK',
             'MMU_RECOVER', 'MMU_UNLOCK', 'MMU_HOME', 'MMU_LOAD', 'MMU_UNLOAD', 'MMU_EJECT',
-            'MMU_PRELOAD', 'MMU_CHECK_GATE', 'MMU_SELECT', 'MMU_CHANGE_TOOL', 'MMU_TTG_MAP']
+            'MMU_PRELOAD', 'MMU_CHECK_GATE', 'MMU_SELECT', 'MMU_CHANGE_TOOL', 'MMU_TTG_MAP',
+            'SET_PAUSE_NEXT_LAYER', 'AXES_SHAPER_CALIBRATION', 'COMPARE_BELTS_RESPONSES']
 
 # A plausible printer state for rendering macros. Override per scenario.
 def make_state(**o):
@@ -11,11 +12,13 @@ def make_state(**o):
       'toolhead': D(position=D(x=175, y=175, z=10, e=0), axis_maximum=D(x=353, y=359, z=330), axis_minimum=D(x=0,y=0,z=-15), homed_axes='xyz'),
       'heater_bed': D(temperature=25, target=0),
       'idle_timeout': D(state='Idle'),
+      'print_stats': D(state='standby', filename='', print_duration=3600.0, message=''),
       'display_status': D(message='', progress=0),
       'extruder': D(temperature=25, target=0),
       'temperature_sensor Chamber': D(temperature=45),
-      'save_variables': D(variables=D(nozzle_diameter=0.6)),
+      'save_variables': D(variables=D(nozzle_diameter=0.6, maintenance_hours=D(filter=99.5, lube=12.0))),
       'configfile': D(settings=D({'beacon': D(home_method='proximity'), 'beacon model default': D(), 'mmu': D(disable_heater=600)}),
+                      save_config_pending_items=D(extruder=D(pid_kp='28.112', pid_ki='3.241', pid_kd='60.950')),
                       config=D(stepper_x=D(position_max='353'), stepper_y=D(position_max='359'), stepper_z=D(position_max='330'),
                                mmu=D(happy_hare_version='4.1.0'))),
       'gcode': D(commands=D({c: D() for c in COMMANDS})),
@@ -27,7 +30,6 @@ def make_state(**o):
                print_state='printing', reason_for_pause='', operation='', action='Idle',
                slicer_tool_map=D(referenced_tools=[0, 1], initial_tool=0,
                                  tools=D({'0': D(material='PLA', name='Galaxy Black'), '1': D(material='PETG', name='Orange')}))),
-      'print_stats': D(state='standby', filename=''),
       'gcode_macro _MMU_CUT_TIP_VARS': D(pin_loc_xy=(10,346), restore_position=False, pin_park_dist=20.0, safe_margin_xy=(60,50)),
     }
     st.update(o); return st
