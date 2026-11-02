@@ -24,7 +24,11 @@ ratios) are left out of the list. Happy Hare's options are audited through
 | `[tmc2209 stepper_x/y] driver_SGTHRS` | 125 | removed | Stale copy. Autotune's `sg4_thrs` (109 / 111, the midpoints of your measured ranges) overrides it; autotune's README says values set in the driver sections have no effect |
 | `[tmc2209 stepper_z*] stealthchop_threshold` | 999999 | removed | Autotune's `tuning_goal: silent` sets StealthChop on Z itself |
 
-## Your decision: legacy values with no recorded reason
+## Legacy values with no recorded reason
+
+Decided in PR #10: `pwm_cycle_time`, `gcode_arcs` resolution and the two bed
+mesh split settings go back to the default. `position_min` stays at -15.
+`horizontal_move_z` is still to be checked against the Beacon docs.
 
 | Option | Default | Ours | Proposal |
 |---|---|---|---|

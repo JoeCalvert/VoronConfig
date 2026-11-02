@@ -201,3 +201,19 @@ Checks:
 - [ ] **F2** Sensorless homing of X and Y behaves exactly as before (the thresholds were already coming from autotune)
 - [ ] **F3** Run `python3 tools/defaults_audit.py ~/klipper/docs/Config_Reference.md printer.cfg` on the Pi, and check the list matches `docs/defaults-audit.md` for your Klipper version
 - [ ] **F4** Tuning pass: `PID_CALIBRATE` for hotend and bed, and Shake&Tune input shaper (EI shapers were redefined in Klipper)
+
+## PR #10: legacy values back to defaults (your decisions from the audit)
+
+| File | Setting | Was | Now | Reason |
+|---|---|---|---|---|
+| `config/hardware/heated_bed.cfg` | `pwm_cycle_time` | 0.01612 | default (0.1) | Looked like a 60 Hz mains figure; UK mains is 50 Hz |
+| `config/machine.cfg` (`[gcode_arcs]`) | `resolution` | 0.1 | default (1.0) | Fewer, longer segments; less MCU load |
+| `config/software/bed_mesh.cfg` | `move_check_distance` | 3.0 | default (5.0) | No recorded reason |
+| same | `split_delta_z` | 0.01 | default (0.025) | No recorded reason |
+
+`position_min: -15` stays, by your decision.
+
+Checks:
+
+- [ ] **L1** Bed heats and holds temperature as before (`pwm_cycle_time`); the bed's PID re-run (F4) covers it too
+- [ ] **L2** First layer is still even across the bed with the default mesh split settings
