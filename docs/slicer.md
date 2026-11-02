@@ -17,6 +17,7 @@ extruders (one per ERCF gate), G-code flavour **Klipper**.
 M140 S{first_layer_bed_temperature[initial_tool]}
 MMU_START_SETUP INITIAL_TOOL={initial_tool} REFERENCED_TOOLS=!referenced_tools! TOOL_COLORS=!colors! TOOL_TEMPS=!temperatures! TOOL_MATERIALS=!materials! FILAMENT_NAMES=!filament_names! PURGE_VOLUMES=!purge_volumes!
 MMU_START_CHECK
+PREFLIGHT_CHECK
 START_PRINT BED={first_layer_bed_temperature[initial_tool]} EXTRUDER={first_layer_temperature[initial_tool]} NOZZLE={nozzle_diameter[0]} CHAMBER={max(max(max((is_extruder_used[0] ? chamber_temperature[0] : 0), (is_extruder_used[1] ? chamber_temperature[1] : 0)), max((is_extruder_used[2] ? chamber_temperature[2] : 0), (is_extruder_used[3] ? chamber_temperature[3] : 0))), max(max((is_extruder_used[4] ? chamber_temperature[4] : 0), (is_extruder_used[5] ? chamber_temperature[5] : 0)), max((is_extruder_used[6] ? chamber_temperature[6] : 0), (is_extruder_used[7] ? chamber_temperature[7] : 0))))}
 MMU_START_LOAD_INITIAL_TOOL
 POST_START_PRINT
@@ -24,6 +25,8 @@ SET_PRINT_STATS_INFO TOTAL_LAYER=[total_layer_count]
 ```
 
 - `M140` comes first, so the bed heats while Happy Hare checks the gates.
+- `PREFLIGHT_CHECK` compares each tool's material and filament name with its
+  gate, and pauses with a dialog if they differ (`macros/print/preflight.cfg`).
 - `CHAMBER` is the highest chamber temperature among the filaments this print
   actually uses (`is_extruder_used`). The expression assumes 8 extruders. If
   PrusaSlicer reports an error in it (older versions have no

@@ -37,6 +37,11 @@ SCENARIOS = [
  ('failed_while_printing', dict(print_stats=D(state='error', filename='part.gcode', message='Move out of range: 360.0 10.0 2.0 [5.0]')),
     ['SET_GCODE_VARIABLE MACRO=_JOB VARIABLE=phase VALUE="\'printing\'"', '_STATUS_FROM_MMU STATE=error', '_UNLOAD_NOW']),
  ('cancel_unloaded', dict(mmu=MMU(filament_pos=0)), ['SET_GCODE_VARIABLE MACRO=_STARTUP_CHECK_STATE VARIABLE=ok VALUE=True', 'START_PRINT BED=100 EXTRUDER=250 CHAMBER=40 NOZZLE=0.6', 'POST_START_PRINT', '_CANCEL_PRINT_EXTENSION']),
+ ('preheat_loaded', dict(heater_bed=D(temperature=40, target=60)), ['_PREHEAT_MENU', 'PREHEAT', 'PREHEAT_OFF']),
+ ('preheat_abs', dict(), ['PREHEAT MATERIAL=abs']),
+ ('preflight_ok', dict(), ['PREFLIGHT_CHECK']),
+ ('preflight_mismatch', dict(mmu=MMU(gate_material=['PLA', 'PLA', 'ABS', ''], gate_filament_name=['Galaxy Black', 'White', '', ''], slicer_tool_map=D(referenced_tools=[0, 1, 2], initial_tool=0, tools=D({'0': D(material='PLA', name='Galaxy Black'), '1': D(material='PETG', name='Orange'), '2': D(material='ABS', name='Red')})), gate_status=[1, 1, 0, -1])),
+    ['PREFLIGHT_CHECK', 'PREFLIGHT_CHECK RECHECK=1', '_PREFLIGHT_CONTINUE']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 
