@@ -296,3 +296,31 @@ without benefit. This removes the leftovers instead.
 Checks:
 
 - [ ] **T2** Klipper restarts without config errors and `CHECK_CONFIG` passes
+
+## PR #16: file layout
+
+The layout from the plan, adjusted for what changed since it was written (no
+positions file or keep-out macro, and firmware Kconfigs live in `ukam/`). Files
+were moved with `git mv` and their contents are unchanged. Only include lines
+were edited.
+
+| Was | Now |
+|---|---|
+| `macros/base/start_print.cfg`, `post_start_print.cfg`, `end_print.cfg` | `macros/print/` |
+| `macros/base/park.cfg`, `macros/base/homing/homing_conditional.cfg`, `macros/base/homing/tilting.cfg`, `config/software/sensorless_homing.cfg` | `macros/motion/` |
+| `macros/base/cancel_print.cfg` | `macros/mmu_hooks/cancel_print.cfg` |
+| `macros/base/startup_check.cfg`, `macros/hardware_functions/status_leds.cfg` | `macros/state/` |
+| `macros/hardware_functions/filter.cfg`, `caselights.cfg`, `macros/helpers/heatsoak.cfg` | `macros/accessories/` |
+| `macros/miscs/debugging.cfg`, `config_backup.cfg` | `macros/system/` |
+| includes spread across `config/machine.cfg`, `lights.cfg`, `nevermore_filter.cfg`, `status_leds.cfg`, `qgl.cfg` | all in `printer.cfg`, grouped and commented |
+| (new) | `docs/state-table.md`: states, sequences and fixed positions, with the file each lives in |
+
+Paths in earlier sections of this file are as they were at the time.
+
+Verified before merging: following every include, the old and new trees load
+the same 167 sections with identical option values, and no variable is defined
+in two places (so the new include order can't change which value wins).
+
+Checks:
+
+- [ ] **Y1** Klipper restarts without config errors and `CHECK_CONFIG` passes
