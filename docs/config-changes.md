@@ -181,3 +181,23 @@ Checks:
 - [ ] **D1** Klipper restarts without config errors, and `CHECK_CONFIG` passes
 - [ ] **D2** Spoolman still shows the active spool changing on a toolchange
 - [ ] **D3** If PrusaSlicer's "Color change G-code" is `M600`, change it to `PAUSE`. `M600` never worked here: it called a macro that doesn't exist
+
+## PR #9: defaults audit, and three fixes it found
+
+| File | Setting | Was | Now | Source and reason |
+|---|---|---|---|---|
+| `config/hardware/fans.cfg` | electronics fan | `[heater_fan electronics_fan]` on the bed at 80 °C | `[controller_fan electronics_fan]`, heaters `extruder, heater_bed` | Bug: the fan never ran for PLA/PETG prints |
+| `config/hardware/axes_xy.cfg` | `driver_SGTHRS` (X, Y) | 125 | removed | Stale copy; autotune's `sg4_thrs` (109 / 111) is the live value |
+| `config/hardware/axes_z.cfg` | `stealthchop_threshold` (Z ×4) | 999999 | removed | Autotune's `tuning_goal: silent` sets StealthChop |
+| `tools/defaults_audit.py`, `docs/defaults-audit.md` | (new) | | | Lists every non-default Klipper option against the installed Klipper's own reference, with a class and decision for each |
+
+Waiting on your decision (see `docs/defaults-audit.md`): `pwm_cycle_time`,
+`gcode_arcs` resolution, `position_min`, the bed mesh split settings, and bed mesh
+`horizontal_move_z`.
+
+Checks:
+
+- [ ] **F1** The electronics fan runs as soon as the motors are enabled or a heater is on, and stops about 30 s after both are off
+- [ ] **F2** Sensorless homing of X and Y behaves exactly as before (the thresholds were already coming from autotune)
+- [ ] **F3** Run `python3 tools/defaults_audit.py ~/klipper/docs/Config_Reference.md printer.cfg` on the Pi, and check the list matches `docs/defaults-audit.md` for your Klipper version
+- [ ] **F4** Tuning pass: `PID_CALIBRATE` for hotend and bed, and Shake&Tune input shaper (EI shapers were redefined in Klipper)
