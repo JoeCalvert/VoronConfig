@@ -460,7 +460,7 @@ is pulling a spool's filament back past the gate before a toolchange):
 
 | File | Change | Reason |
 |---|---|---|
-| `macros/print/job_recovery.cfg` (new) | `_JOB_FAILED`: when a print stops with an error (in `START_PRINT` or while printing), job phase `failed`, machine state `failed`, and a dialog with the error, the step it was on, Reprint / Turn the heaters off / Unload | Klipper just stops with the heaters on. Klipper has no error hook, but Happy Hare reports print state `error`, so no polling is needed |
+| `macros/print/job_recovery.cfg` (new) | `_JOB_FAILED`: when a print stops with an error (in `START_PRINT` or while printing), job phase `failed`, machine state `failed`, and a dialog with the error, the step it was on, Reprint / Turn the heaters off / Unload | Klipper just stops. Happy Hare reports print state `error`, so no polling is needed. *(Corrected in PR #29: Klipper does turn the heaters off by default, via `on_error_gcode`.)* |
 | `macros/state/status_leds.cfg` | `_STATUS_FROM_MMU` runs `_JOB_FAILED` on Happy Hare state `error` | |
 | `macros/state/machine_state.cfg` | new machine state `failed` (error LED effect, filter off) and job phase `failed` | |
 | `macros/print/end_print.cfg` | after a cancel, `_OFFER_UNLOAD` asks whether to unload any loaded filament | `unload_tool_on_cancel` stays off: a cancel may be because of a filament problem, so it asks instead |
@@ -600,3 +600,31 @@ Checks:
 - [ ] **D2** On the Pi: clone the repository to `~/VoronConfig` and run `python3 ~/VoronConfig/tools/deploy.py --dry-run`. Check the plan, especially the files it removes
 - [ ] **D3** Run it for real. The SAVE_CONFIG block (Beacon model) is kept, and `CHECK_CONFIG` prints OK
 - [ ] **D4** GitHub → Actions: the `check` workflow passes on main
+
+## PR #29: chamber soak, bed soak, mesh/QGL area, clog detection, endless spool, clean-up
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/accessories/heatsoak.cfg`, `config/variables.cfg` | Chamber soak now waits at `chamber_soak_position_xyz: 175, 175, 80` (lifts Z first). The bed soak stays at 300,300, Z 2 | The chamber thermistor is on the toolhead. At Z 2 over a 100 °C bed it read the bed, so the chamber soak ended almost at once. My mistake in PR #19 |
+| `config/variables.cfg` | `print_default_soak: 10` (was 2) minutes of bed soak when the bed starts cold | A 350 plate keeps moving well after it reaches temperature. Preheating skips it |
+| `config/software/bed_mesh.cfg` | `mesh_min: 15, 20`, `mesh_max: 335, 335` (was 40..310). Stale comments removed | No reason for the 40 mm margins. Beacon reaches X 0–353 and Y 15.6 onwards |
+| `config/software/qgl.cfg` | QGL points (nozzle) 25,10 / 25,310 / 325,310 / 325,10. Beacon measures at X 25/325, Y 25.6/325.6 (was 50/300, 40.6/290.6) | Wider points level the gantry more accurately |
+| `mmu/base/mmu_parameters_unit0.cfg` + `.mmu_config` | `flowguard_encoder_mode: 2` (was 0) | Encoder clog/tangle detection was off. 2 = auto-tuned detection length |
+| `mmu/base/mmu.cfg` + `.mmu_config` | `endless_spool_enabled: 1` | Runout switches to another gate with the same filament |
+| `macros/mmu_hooks/endless_spool.cfg` (new) | `_ENDLESS_SPOOL_AUTOGROUP`: puts gates holding the same filament (material and name, from NFC/Spoolman) in one endless spool group. Runs at print start (`PREFLIGHT_CHECK`), after a spool swap and in `MMU_CHECKUP` | Endless spool does nothing until gates are grouped, and groups are otherwise set by hand. Groups set by hand are replaced |
+| `config/boards/rpi.cfg` | `[mcu rpi]` removed (the Pi temperature sensor stays) | Nothing used it. The host MCU service could only stop Klipper starting |
+| `config/software/settling_probe.cfg`, `test_probe_accuracy.cfg`, `fluidd.cfg` | removed | A Klicky/Tap feature, an empty file and an empty file |
+| `config/hardware/extruder.cfg`, `probe.cfg` | stale template comments replaced (Galileo 2, Revo thermistor, why Z homes at 300,300) | |
+| `macros/print/job_recovery.cfg`, `docs/state-table.md` | corrected: Klipper's `on_error_gcode` turns the heaters off by default | I said otherwise in PR #23 |
+
+Simulator: the bed soak waits 10 minutes, the chamber soak waits at 175,175,80, and there's a new endless spool scenario. Nothing else changed.
+
+Checks:
+
+- [ ] **T1** **Mesh edges:** run `BED_MESH_CALIBRATE` (non-adaptive, MENU → Calibrate → Full bed mesh) and check the edges of the mesh view. A sudden drop or jump along an edge means Beacon is partly off the plate there: move that `mesh_min`/`mesh_max` value in by 5–10 mm
+- [ ] **T2** **QGL points:** run `QUAD_GANTRY_LEVEL` and watch each probe point. Beacon must be fully over the plate, clear of edges, clips and magnets, at all four. It should converge in a few retries
+- [ ] **T3** A chamber print: the soak waits at the centre, 80 mm up. The chamber temperature climbs slowly instead of jumping, and the soak runs until the target or the time limit
+- [ ] **T4** A cold-bed start soaks the bed 10 minutes
+- [ ] **T5** `MMU_ENDLESS_SPOOL` shows endless spool enabled, with gates of the same filament grouped. If it still says disabled, Happy Hare has a saved "off" in `mmu_vars.cfg`: run `MMU_ENDLESS_SPOOL ENABLE=1` once
+- [ ] **T6** Encoder clog detection: no false clog pauses over a few prints. If they happen, use `flowguard_encoder_mode: 1` with a larger `flowguard_encoder_max_motion`
+- [ ] **T7** Klipper starts without `[mcu rpi]`. You can disable the `klipper-mcu` service afterwards
