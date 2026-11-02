@@ -97,6 +97,32 @@ Checks on the printer:
 - [ ] **H2** Hot (nozzle above 160 °C), after a restart: `MMU_LOAD` homes by itself first, without a contact error
 - [ ] **H3** A normal print start still contact-homes after the wipe
 
+## PR #5: slicer integration and a simpler START_PRINT
+
+`START_PRINT` now takes only what the slicer owns, and leaves everything else to
+its owner (see `docs/slicer.md`).
+
+| File | Setting | Was | Now | Source and reason |
+|---|---|---|---|---|
+| `macros/base/start_print.cfg` | `START_PRINT` parameters | `BED`, `HOTEND`, `MATERIALS`, `REFERENCED_TOOLS`, `SOAK`, `SIZE`, `Z_ADJUST` | `BED`, `EXTRUDER` (`HOTEND` still accepted), `CHAMBER`, `NOZZLE`, `Z_ADJUST` | plan; materials come from Happy Hare, the mesh area from object labels, the chamber target from Orca |
+| same | chamber decision | exact `ABS`/`ASA` match sets 40 °C | Orca's `overall_chamber_temperature` | plan; set per filament in Orca |
+| same | pin avoidance before QGL | X move if left of X 40 | removed | PR #2 removed the causes; nothing leaves the toolhead stranded on the tray |
+| same | sequence | coarse QGL, wipe, contact, QGL, mesh, wipe, contact, heat, offset, move to 55,340 | coarse QGL, wipe, contact, QGL, contact, mesh, park on tray, heat, offset | plan; no second wipe (no extrusion at 150 °C); final heat over the tray so ooze falls into it; the first tool load starts there |
+| same | hot-nozzle offset | `0.055` inline | `_BEACON_VARS.hot_nozzle_offset` in `config/hardware/probe.cfg` | plan; one value, beside the Beacon settings |
+| same | `NOZZLE_SET` | (none) | new | plan; records the fitted nozzle; `START_PRINT` refuses files sliced for another |
+| same | old slicer start G-code | accepted | refused with a message | prevents half-updated profiles |
+| `macros/base/post_start_print.cfg` | `VORON_PURGE` | called | removed | plan; Blobifier already purged and wiped |
+| `docs/slicer.md` | (new) | | | The Orca machine G-code and settings to match |
+
+Checks:
+
+- [ ] **S1** Paste the start, end, change-filament and layer-change G-code from `docs/slicer.md` into the Orca printer preset (each nozzle preset)
+- [ ] **S2** In a sliced file, nothing comes before `MMU_START_SETUP` except the `M140` line (Orca isn't adding its own heat-and-wait lines)
+- [ ] **S3** Slice an ABS/ASA part: the `START_PRINT` line shows `CHAMBER=` with your target, while "activate temperature control" is off. Slice PLA: `CHAMBER=0`
+- [ ] **S4** Run `NOZZLE_SET DIAMETER=0.6` (the nozzle currently in the config) once; then a file sliced for 0.4 should be refused
+- [ ] **S5** Full print start: homing, soak only if needed, QGL, contact, mesh over the objects only, then heats on the tray; the first tool load purges there without moving away first
+- [ ] **S6** First layer height looks right; `hot_nozzle_offset` 0.055 is unchanged from before
+
 ## PR #6: remove autocommit.sh
 
 | File | Change | Reason |
