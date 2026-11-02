@@ -104,24 +104,25 @@ its owner (see `docs/slicer.md`).
 
 | File | Setting | Was | Now | Source and reason |
 |---|---|---|---|---|
-| `macros/base/start_print.cfg` | `START_PRINT` parameters | `BED`, `HOTEND`, `MATERIALS`, `REFERENCED_TOOLS`, `SOAK`, `SIZE`, `Z_ADJUST` | `BED`, `EXTRUDER` (`HOTEND` still accepted), `CHAMBER`, `NOZZLE`, `Z_ADJUST` | plan; materials come from Happy Hare, the mesh area from object labels, the chamber target from Orca |
-| same | chamber decision | exact `ABS`/`ASA` match sets 40 °C | Orca's `overall_chamber_temperature` | plan; set per filament in Orca |
+| `macros/base/start_print.cfg` | `START_PRINT` parameters | `BED`, `HOTEND`, `MATERIALS`, `REFERENCED_TOOLS`, `SOAK`, `SIZE`, `Z_ADJUST` | `BED`, `EXTRUDER` (`HOTEND` still accepted), `CHAMBER`, `NOZZLE`, `Z_ADJUST` | plan; materials come from Happy Hare, the mesh area from object labels, the chamber target from the PrusaSlicer filament settings |
+| same | chamber decision | exact `ABS`/`ASA` match sets 40 °C | highest `chamber_temperature` of the filaments used, computed in the PrusaSlicer start G-code | plan; set per filament in PrusaSlicer |
 | same | pin avoidance before QGL | X move if left of X 40 | removed | PR #2 removed the causes; nothing leaves the toolhead stranded on the tray |
 | same | sequence | coarse QGL, wipe, contact, QGL, mesh, wipe, contact, heat, offset, move to 55,340 | coarse QGL, wipe, contact, QGL, contact, mesh, park on tray, heat, offset | plan; no second wipe (no extrusion at 150 °C); final heat over the tray so ooze falls into it; the first tool load starts there |
 | same | hot-nozzle offset | `0.055` inline | `_BEACON_VARS.hot_nozzle_offset` in `config/hardware/probe.cfg` | plan; one value, beside the Beacon settings |
 | same | `NOZZLE_SET` | (none) | new | plan; records the fitted nozzle; `START_PRINT` refuses files sliced for another |
 | same | old slicer start G-code | accepted | refused with a message | prevents half-updated profiles |
 | `macros/base/post_start_print.cfg` | `VORON_PURGE` | called | removed | plan; Blobifier already purged and wiped |
-| `docs/slicer.md` | (new) | | | The Orca machine G-code and settings to match |
+| `docs/slicer.md` | (new) | | | The PrusaSlicer custom G-code and settings to match |
 
 Checks:
 
-- [ ] **S1** Paste the start, end, change-filament and layer-change G-code from `docs/slicer.md` into the Orca printer preset (each nozzle preset)
-- [ ] **S2** In a sliced file, nothing comes before `MMU_START_SETUP` except the `M140` line (Orca isn't adding its own heat-and-wait lines)
-- [ ] **S3** Slice an ABS/ASA part: the `START_PRINT` line shows `CHAMBER=` with your target, while "activate temperature control" is off. Slice PLA: `CHAMBER=0`
+- [ ] **S1** Paste the start, end, change-filament and layer-change G-code from `docs/slicer.md` into the PrusaSlicer printer preset (each nozzle preset)
+- [ ] **S2** In a sliced file, nothing comes before `MMU_START_SETUP` except the `M140` line and no `M141`/`M191` ("Emit temperature commands automatically" is off)
+- [ ] **S3** Slice a part with an ABS/ASA filament (chamber temperature set): the `START_PRINT` line shows `CHAMBER=` with your target. Slice PLA: `CHAMBER=0`. If PrusaSlicer reports an error in the chamber expression, use the fallback in `docs/slicer.md`
 - [ ] **S4** Run `NOZZLE_SET DIAMETER=0.6` (the nozzle currently in the config) once; then a file sliced for 0.4 should be refused
 - [ ] **S5** Full print start: homing, soak only if needed, QGL, contact, mesh over the objects only, then heats on the tray; the first tool load purges there without moving away first
 - [ ] **S6** First layer height looks right; `hot_nozzle_offset` 0.055 is unchanged from before
+- [ ] **S7** Pressure advance: each filament's start G-code has its `SET_PRESSURE_ADVANCE` line, and the console shows it after a tool change
 
 ## PR #6: remove autocommit.sh
 
