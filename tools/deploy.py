@@ -11,7 +11,9 @@ Run on the Pi, from a clone of this repository (not from the live config):
 What it does:
  1. git pull --ff-only (unless --no-pull), and refuses a clone with local changes.
  2. Refuses while a print is running.
- 3. Runs tools/check_deps.py against ~/Happy-Hare (if present).
+ 3. Runs tools/check_deps.py against ~/Happy-Hare (if present), and
+    tools/klipper_load_check.py against ~/klipper: a config Klipper couldn't
+    load is refused before anything is copied.
  4. Shows what will change in ~/printer_data/config:
     - files added or changed;
     - files removed: ones in our own folders (macros, config, tools, docs, ukam)
@@ -246,6 +248,14 @@ def main():
     r = subprocess.run(deps)
     if r.returncode and not a.force:
         sys.exit('check_deps found problems (above). Fix them, or use --force.')
+    klipper = os.path.expanduser('~/klipper')
+    if os.path.isdir(os.path.join(klipper, 'klippy')):
+        # Klipper's own config reader over the repository: anything that would
+        # stop Klipper starting is refused here, before it reaches the printer
+        r = subprocess.run([sys.executable, os.path.join(ROOT, 'tools', 'klipper_load_check.py'),
+                            '--klipper', klipper, '--root', ROOT])
+        if r.returncode and not a.force:
+            sys.exit('Klipper could not load this config (above). Nothing was deployed.')
 
     tracked, add, change, remove = plan(target)
     for title, items in (('Add', add), ('Change', change), ('Remove (no longer in the repository)', remove)):
