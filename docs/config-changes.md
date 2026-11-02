@@ -96,3 +96,13 @@ Checks on the printer:
 - [ ] **H1** Cold, after a restart: Mainsail's home-all homes Z without touching the bed
 - [ ] **H2** Hot (nozzle above 160 °C), after a restart: `MMU_LOAD` homes by itself first, without a contact error
 - [ ] **H3** A normal print start still contact-homes after the wipe
+
+## PR #6: remove autocommit.sh
+
+| File | Change | Reason |
+|---|---|---|
+| `autocommit.sh` | removed | Not used: config backups run through klipper-backup (`update_git` in `macros/miscs/config_backup.cfg`). Its `git pull` before committing would also have deployed every merge straight to the printer |
+
+Checks:
+
+- [ ] **A1** Nothing on the Pi still runs `autocommit.sh` (crontab, systemd timers, Moonraker shell commands)
