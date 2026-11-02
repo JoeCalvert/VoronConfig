@@ -57,6 +57,10 @@ SCENARIOS = [
  ('check_dialog_problem', dict(save_variables=D(variables=D())), ['CHECK_CONFIG STARTUP=1']),
  ('endless_spool_groups', dict(mmu=MMU(gate_material=['PLA', 'PLA', 'PETG', 'PLA'], gate_filament_name=['Galaxy Black', 'galaxy black ', 'Orange', ''])), ['_ENDLESS_SPOOL_AUTOGROUP']),
  ('endless_spool_unchanged', dict(), ['_ENDLESS_SPOOL_AUTOGROUP']),
+ ('retune_list', dict(save_variables=D(variables=D(nozzle_diameter=0.6, retune_done=['mech']))), ['RETUNE', '_RETUNE_MARK STEP=belts DONE=1', '_RETUNE_RESET']),
+ ('retune_steps', dict(), ['_RETUNE_MECH', '_RETUNE_BELTS', '_RETUNE_BELT_POSITION', '_RETUNE_EDGES', '_RETUNE_SHAPER', '_RETUNE_PID', '_RETUNE_EXTRUDER', '_RETUNE_FIRSTLAYER', '_RETUNE_FILAMENT']),
+ ('retune_ercf', dict(save_variables=D(variables=D(nozzle_diameter=0.6, mmu_unit0_selector_offsets=[3.2, 26.6], mmu_unit0_gear_rotation_distances=[23.6, -1], mmu_unit0_bowden_lengths=[-1]))), ['_RETUNE_ERCF', '_RETUNE_ERCF_DO STEP=selector', '_RETUNE_ERCF_DO STEP=gear_advance', '_RETUNE_ERCF_DO STEP=gear_move', '_RETUNE_ERCF_DO STEP=gates']),
+ ('cal_shaper_klipper', dict(quad_gantry_level=D(applied=True)), ['_CAL_SHAPER_KLIPPER BACK=_RETUNE_SHAPER', '_CAL_SAVE']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 
