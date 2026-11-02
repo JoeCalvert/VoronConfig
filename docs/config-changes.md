@@ -669,3 +669,26 @@ Checks:
 - [ ] **R3** Run one PID from the wizard and press Save: Klipper restarts with the new values in the SAVE_CONFIG block. Deploy again: they're kept
 - [ ] **R4** The ERCF step's buttons each run (motors off, selector, advance, move 100 mm) and the dialog comes back afterwards
 - [ ] Then work through the retune itself (`docs/retune.md`)
+
+## PR #32: PA/EM test prints, a pick-any tune menu, more ERCF tunes
+
+| File | Change | Reason |
+|---|---|---|
+| `tools/calib_gcode.py` (new), `macros/workflows/filament_tests.cfg` (new) | `CAL_FILAMENT TEST=pa\|em`: pick a gate and a range, and the printer writes an Ellis-style test (PA chevrons or EM squares) and prints it with our own start/end sequence. At the end you pick the best pattern; it's applied and kept per filament and nozzle (`filament_tuning`) | Ellis's online generator needs its start G-code rewritten for this printer and doesn't load a gate. This one can't get that wrong |
+| `config/variables.cfg` | `calib_perimeter_speed: 100`, `calib_perimeter_accel: 4000`, `calib_max_flow: 15`, `calib_fan` per material | The PA result depends on the speed and acceleration of the corners. **Set these to your PrusaSlicer external perimeter values** |
+| `macros/print/end_print.cfg` | After a test print in `calibration/`, acceleration and flow are restored, and PA too on a cancel | A cancelled PA test would otherwise leave the last pattern's PA set |
+| `macros/workflows/retune.cfg` | `RETUNE` is now a menu of 14 tunes in four groups, any of which can be run on its own. ERCF split into selector and servo, gear/encoder/bowden, Filamentalist tension (per-gate out-and-back test), per-gate calibration (rotation distances against gate 0), toolhead distances, and a load/unload soak test | Pick the tune you want. The per-gate and Filamentalist checks were missing |
+| `macros/workflows/calibrate.cfg` | PA and EM test print buttons | |
+| `macros/system/dependencies.cfg` | `MMU_HOME`, `MMU_SERVO`, `MMU_SOAKTEST_LOAD_SEQUENCE`, `RUN_SHELL_COMMAND`, `gate_temperature` | Used by the above |
+
+Simulator: new scenarios for the tune menu, per-gate dialog, Filamentalist test, the filament tests, picking a result and cancelling a test. Other scenarios are unchanged.
+
+Checks:
+
+- [ ] **P1** Set the `calib_*` values in `config/variables.cfg` to your PrusaSlicer profile's external perimeter speed and acceleration
+- [ ] **P2** `CAL_FILAMENT TEST=pa`, pick a gate, Wide: the console says `calib_gcode: wrote …`, and the print starts, loads that gate, and prints 21 chevrons numbered 1, 6, 11, 16 and 21 in the middle of the bed
+- [ ] **P3** At the end, the "Which pattern is best?" dialog appears. Pick one: `SET_PRESSURE_ADVANCE` with no parameters reports it, and the PA/EM dialog lists it
+- [ ] **P4** Cancel a test partway: the PA goes back to what it was before (`SET_PRESSURE_ADVANCE` with no parameters reports it) and `SET_VELOCITY_LIMIT` shows max_accel 7000 again
+- [ ] **P5** An EM test prints 10 squares. Their top surfaces visibly change from gappy (left) to rough (right)
+- [ ] **P6** `RETUNE` shows the four groups; each tune opens on its own
+- [ ] **P7** Filamentalist test on one gate: the filament goes 300 mm out, comes back, and the gate parks again

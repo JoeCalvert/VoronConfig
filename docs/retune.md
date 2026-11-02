@@ -1,13 +1,19 @@
 # Retune
 
-The whole retune, in order. On the printer: **MENU → Calibrate → Retune** (or
-type `RETUNE`). It lists the steps below, ticks them off as you mark them done
-(the ticks survive restarts) and highlights the next one. Each step's dialog
-has the buttons for that step and a Back button to the list.
+Every tune, in one menu. On the printer: **MENU → Calibrate → Retune** (or
+type `RETUNE`). Pick any tune on its own, or for a full retune go top to
+bottom: each one assumes the ones above it. Belts change the resonances, so
+input shaping comes after them; the ERCF must load reliably before filament
+tests; pressure advance comes before extrusion multiplier. Each tune's dialog
+has its instructions, target values and buttons. "Mark done" ticks it (ticks
+survive restarts) and the first unticked tune is highlighted.
 
-Do the steps in order: each one assumes the ones before it. Belts change the
-resonances, so input shaping comes after them, and pressure advance comes after
-the first layer is right.
+| Group | Tunes |
+|---|---|
+| Motion | Mechanical check, Belts, Mesh and QGL edges, Input shaper |
+| Heaters | PID |
+| ERCF | Selector and servo, Gear/encoder/bowden, Filamentalist tension, Per-gate calibration, Toolhead distances, Soak test |
+| Print | Extruder check (optional), First layer, PA and EM per filament |
 
 Results that Klipper calculates (PID, input shaper) are saved by a **Save**
 button in the result dialog. That runs `SAVE_CONFIG`, which writes them to the
@@ -91,10 +97,12 @@ Nozzle and bed, at the default print temperatures. Each takes a few minutes and
 shows the result with a **Save** button. Saving restarts Klipper, so do one,
 save, then the other.
 
-## 6. ERCF calibration
+## 6. ERCF
 
-Happy Hare v4's order. Redoing an earlier step means redoing the ones after it.
-The dialog marks each step done once Happy Hare has a saved value for it.
+Happy Hare v4's order: selector, gear, encoder, bowden, per-gate, toolhead.
+Redoing the gear means redoing encoder, bowden and per-gate; selector and
+toolhead can be redone any time. Each dialog marks a step done once Happy Hare
+has a saved value for it.
 
 Old v3 values, as a sanity check (from `mmu.V3/mmu_vars.cfg`):
 
@@ -106,27 +114,74 @@ Old v3 values, as a sanity check (from `mmu.V3/mmu_vars.cfg`):
 | Bowden length | 1198.9 mm |
 | Servo angles | down 75, up 155, move 132 |
 
-1. **Selector:** press **Motors off**, slide the selector by hand until it lines
-   up with gate 0, then **Calibrate selector** (`MMU_CALIBRATE_SELECTOR
-   AUTO=1`). It sweeps the full travel and works out every gate. Check it after
-   with `MMU_HOME` and `MMU_SELECT GATE=7`. If a servo position needs touching
-   up: `MMU_SERVO POS=up`, `MMU_SERVO ANGLE=…`, then `MMU_SERVO POS=up SAVE=1`
-   (same for `down` and `move`).
-2. **Gear (gate 0):** filament in gate 0. **Advance 50 mm** pushes it out of the
-   ERCF. Cut it flush where it leaves the ERCF. **Move 100 mm**
-   (`MMU_TEST_MOVE MOVE=100 GRIP=1`) and measure what came out. Then type
+### Selector and servo
+
+Press **Motors off**, slide the selector by hand until it lines up with gate 0,
+then **Calibrate** (`MMU_CALIBRATE_SELECTOR AUTO=1`): it sweeps the full travel
+and works out every gate. **Check** homes and goes to gate 7.
+
+Servo: **Up**, **Down** and **Move** show each position. Up lets the filament
+slide freely, down grips it, move holds it while clearing everything as the
+selector travels. To adjust one: `MMU_SERVO ANGLE=…` until it's right, then
+`MMU_SERVO POS=up SAVE=1` (or `down` / `move`).
+
+### Gear, encoder and bowden (gate 0)
+
+1. **Gear:** filament in gate 0. **Advance 50 mm** pushes it out of the ERCF.
+   Cut it flush where it leaves the ERCF. **Move 100 mm**
+   (`MMU_TEST_MOVE MOVE=100 GRIP=1`) and measure what came out, then type
    `MMU_CALIBRATE_GEAR MEASURED=<mm>` in the console. Move 100 mm again to
    check it now comes out at 100.
-3. **Encoder:** automatic (`MMU_CALIBRATE_ENCODER`). Needs gate 0 filament past
-   the encoder, which step 2 leaves it.
-4. **Bowden length:** automatic (`MMU_CALIBRATE_BOWDEN`). It loads gate 0 to the
-   extruder and records the bowden length.
-5. **All gates:** filament in every gate, then `MMU_CALIBRATE_GATE ALL=1`. It
-   calibrates each gate's rotation distance against the encoder.
-6. **Toolhead:** after a cold pull (clean nozzle), heat the extruder for your
-   filament and run **Clean**. Then load filament and run **Dirty**, then
-   **Cut**. These measure the toolhead sensor-to-nozzle distances and the
-   cutter, using the toolhead sensor.
+2. **Encoder:** automatic (`MMU_CALIBRATE_ENCODER`). Needs the gate 0 filament
+   past the encoder, which step 1 leaves it.
+3. **Bowden length:** automatic (`MMU_CALIBRATE_BOWDEN`). It loads gate 0 to the
+   extruder and records the length.
+
+### Filamentalist tension
+
+The Filamentalist's tension should be as light as will still rewind. The
+advice from its designers on the Armchair Heavy Industries Discord: with no
+filament loaded, turn the tension screw until it just touches the top washer.
+(That advice was given for the EMU build, which uses the same Filamentalist
+with the EMU's spring and two washers; check yours uses the same parts.)
+
+Then test each gate (filament unloaded, all gates parked): the gate's button
+pushes its filament 300 mm into the bowden, pulls it back, and parks it again
+(`MMU_TEST_MOVE MOVE=300`, `MOVE=-300`, `MMU_CHECK_GATE`).
+
+- **Too light:** the spool doesn't take the slack up on the way back; a loose
+  loop forms or falls off the spool.
+- **Too tight, or a dragging spool:** the console's *measured* distance falls
+  well short of 300, because the gear slips.
+
+### Per-gate calibration
+
+After gear and encoder, with filament in every gate. Each gate's gear runs
+slightly differently (its BMG gear mesh, its spool's drag), so
+`MMU_CALIBRATE_GATE ALL=1` measures each gate against the encoder and saves a
+rotation distance per gate. The dialog lists them with the difference from
+gate 0; more than about 2 % usually means a misaligned BMG gear, a tight
+Filamentalist or a dragging spool, so fix that and recalibrate the gate.
+
+**Check all gates** (`MMU_CHECK_GATE ALL=1`) then parks each gate and marks it
+available.
+
+`autotune_rotation_distance` (off, in `mmu_parameters_unit0.cfg`) can keep
+refining these from encoder readings during normal use. Leave it off until the
+manual values are good.
+
+### Toolhead distances
+
+After a cold pull (clean nozzle), heat the extruder for the filament and run
+**Clean**. Then load filament and run **Dirty**, then **Cut**. These measure the
+toolhead sensor-to-nozzle distances and the cutter, using the toolhead sensor.
+
+### Soak test
+
+Proves the calibration: `MMU_SOAKTEST_LOAD_SEQUENCE` loads and unloads every
+gate in turn. **Quick** (3 rounds, partway down the bowden) or **Full** (1
+round, to the extruder each time, slow). Filament in every gate. A failure
+pauses with the usual MMU recovery dialog.
 
 ## 7. Extruder check (optional)
 
@@ -146,48 +201,44 @@ loose, baby-step Z during the test, note the total change and add it to
 
 ## 9. Pressure advance and extrusion multiplier, per filament
 
-Ellis's method is still the usual one on the Voron Discord: pressure advance
-first, then extrusion multiplier. Orca's built-in PA test gives equivalent
-results, but you use PrusaSlicer.
+Andrew Ellis's methods, generated and printed by the printer itself, so they use
+this printer's real start sequence. **PA and EM per filament** (or Calibrate →
+PA / EM test print, or `CAL_FILAMENT TEST=pa|em`):
 
-Load the filament's gate from the MMU panel before printing a test. The test
-G-code doesn't select a tool, so it prints with whatever is loaded.
+1. Pick the gate holding the filament.
+2. Pick a range. PA: **Wide** (0–0.08) first, then **Fine** around your pick if
+   the best two look alike. EM: **Coarse** (0.86–1.04 in 0.02 steps), then
+   **Fine** (±0.03 in 0.01 steps) around your pick.
+3. It prints. `tools/calib_gcode.py` writes the test to
+   `gcodes/calibration/` and starts it as a normal print: `START_PRINT` (nozzle
+   check, contact Z, adaptive mesh over just the test), Happy Hare loads the
+   gate's tool, and `MMU_END` / `END_PRINT` finish it. Pause and cancel work as
+   usual.
+4. When it finishes, a dialog asks which pattern is best (they're numbered on
+   the print, from 1 on the left). Your pick is applied, and kept per filament
+   and nozzle size; the PA/EM dialog lists all results.
+5. Copy the values into PrusaSlicer: PA into the filament's Start G-code as
+   `SET_PRESSURE_ADVANCE ADVANCE=…` (see `docs/slicer.md` for per-nozzle values),
+   EM into its **Extrusion multiplier**.
 
-### Pressure advance: Ellis's pattern tool
+What to look for:
 
-Settings for this printer in the generator (ellis3dp.com, Pressure Advance
-tool):
+- **PA** (nested chevrons): the sharpest corner, with no gap or bulge where
+  the lines start and end.
+- **EM** (solid squares, each at a different multiplier): a smooth top surface.
+  Gaps between lines mean too low; ridges or rough patches mean too high.
 
-- Firmware **Klipper**, bed **350 × 350**, nozzle: what's fitted.
-- Retraction and fan: copy from your PrusaSlicer filament and printer profiles.
-- PA range for a direct-drive extruder: start 0, end 0.08, step 0.005. Narrow
-  it on a second run.
-- **Start G-code** (replace the tool's default entirely):
+The temperatures come from the gate's filament (Spoolman), and the bed and
+chamber from `preheat_materials`. Speed, acceleration, flow limit and fan come
+from the `calib_*` settings in `config/variables.cfg`. Set those to your
+PrusaSlicer external perimeter speed and acceleration: pressure advance
+depends on them. The EM test applies the filament's PA result first, if there
+is one. The line widths and flow use PrusaSlicer's formula, so the EM you pick
+transfers directly.
 
-  ```
-  START_PRINT BED=[BED_TEMP] EXTRUDER=[HOTEND_TEMP] NOZZLE=0.60
-  POST_START_PRINT
-  ```
+**Is Ellis still the method?** On the Voron Discord in 2026 people still tune
+PA with Ellis's pattern tool or OrcaSlicer's built-in pattern test, which users
+there describe as the same thing. Helpers still link Ellis's extrusion
+multiplier page. I found nothing that has replaced either.
 
-  `[BED_TEMP]` and `[HOTEND_TEMP]` are the tool's own placeholders. Set
-  `NOZZLE` to the fitted nozzle, or `START_PRINT` refuses the file. Add
-  `CHAMBER=…` for ABS/ASA.
-- **End G-code:** `END_PRINT`
-
-Pick the pattern with the sharpest corners and no gap or bulge at the start and
-end of lines.
-
-### Extrusion multiplier: Ellis's cubes
-
-Slice a few 30 × 30 × 3 mm cubes in PrusaSlicer with the filament's normal
-settings and the PA from above, changing the extrusion multiplier by 2 % between
-them. Pick the one whose top surface is smooth with no gaps between lines and
-no ridging. Then fine-tune in 1 % steps.
-
-### Where the values go
-
-- **PA:** the PrusaSlicer filament's start G-code,
-  `SET_PRESSURE_ADVANCE ADVANCE=…` (per nozzle size; see `docs/slicer.md`).
-- **EM:** the filament's **Extrusion multiplier**.
-
-Mark the step done when your usual filaments are tuned.
+Mark the tune done when your usual filaments are tuned.
