@@ -138,6 +138,25 @@ def dialog_text_problems():
     return out
 
 
+def hash_in_quotes_problems():
+    """Klipper's config reader cuts every line at its first '#', even inside a
+    quoted string (configfile.py), so a '#' in macro code silently truncates the
+    line and Klipper won't start. Use '%c' % 35 where a '#' is needed."""
+    out = []
+    files = glob.glob(os.path.join(ROOT, 'macros', '**', '*.cfg'), recursive=True)
+    files += glob.glob(os.path.join(ROOT, 'config', '**', '*.cfg'), recursive=True)
+    for path in sorted(files):
+        for n, line in enumerate(open(path), 1):
+            pos = line.find('#')
+            if pos <= 0:
+                continue
+            before = line[:pos]
+            if before.count("'") % 2 or before.count('"') % 2:
+                out.append("%s:%d has '#' inside a quoted string; Klipper cuts the line there (use '%%c' %% 35)"
+                           % (os.path.relpath(path, ROOT), n))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--happy-hare', help='path to a Happy Hare checkout (e.g. ~/Happy-Hare)')
@@ -163,6 +182,7 @@ def main():
             problems.append('%s reads %s.%s, which is missing from _DEPENDENCIES settings' % (where, s[0], s[1]))
 
     problems += dialog_text_problems()
+    problems += hash_in_quotes_problems()
 
     if a.happy_hare:
         hh = os.path.expanduser(a.happy_hare)
