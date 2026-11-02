@@ -79,8 +79,8 @@ def used(macros):
             f = f[0] or f[1]
             if f not in ('get',):
                 fields.setdefault(f, where)
-        # Happy Hare [mmu] parameters read from printer.configfile.settings.mmu.
-        for f in re.findall(r'settings\.mmu(?:\|default\(\{\}\)\))?\.(\w+)', body):
+        # Happy Hare parameters read from printer.configfile.settings['mmu_parameters'].
+        for f in re.findall(r"settings\['mmu_parameters'\](?:\|default\(\{\}\)\))?\.(\w+)", body):
             params.setdefault(f, where)
         # Happy Hare / Blobifier variables read through an alias.
         for alias, macro in re.findall(r"set (\w+) = printer\[['\"]gcode_macro (_(?:MMU|BLOBIFIER)\w+)['\"]\]", body):
@@ -157,6 +157,32 @@ def hash_in_quotes_problems():
     return out
 
 
+CONFIG_READ = re.compile(r"configfile\.(?:settings|config)(?:\.(\w+)|\[['\"]([^'\"]+)['\"]\])"
+                         r"(?:\|default\([^)]*\)\))?\.(\w+)")
+
+
+def config_section_problems():
+    """A macro reading printer.configfile.settings/config.<section>.<option> fails
+    at run time if the section doesn't exist (Happy Hare v4 renamed [mmu] to
+    [mmu_machine], [mmu_parameters]...). Check each against the config itself."""
+    sys.path.insert(0, os.path.join(ROOT, 'tools', 'macro_sim'))
+    from macrosim import parse_files
+    _, secs = parse_files(ROOT)
+    out = []
+    for path in sorted(glob.glob(os.path.join(ROOT, 'macros', '**', '*.cfg'), recursive=True)):
+        for n, line in enumerate(open(path), 1):
+            for a, b, opt in CONFIG_READ.findall(line):
+                section = a or b
+                # Klipper loads these without a config section; macros read them with a default
+                if section not in secs and section not in ('idle_timeout',):
+                    out.append("%s:%d reads config section [%s], which this config doesn't have"
+                               % (os.path.relpath(path, ROOT), n, section))
+                elif section.startswith('mmu') and opt.lower() not in secs[section]:
+                    out.append("%s:%d reads %s from [%s], which doesn't set it"
+                               % (os.path.relpath(path, ROOT), n, opt, section))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--happy-hare', help='path to a Happy Hare checkout (e.g. ~/Happy-Hare)')
@@ -183,6 +209,7 @@ def main():
 
     problems += dialog_text_problems()
     problems += hash_in_quotes_problems()
+    problems += config_section_problems()
 
     if a.happy_hare:
         hh = os.path.expanduser(a.happy_hare)
