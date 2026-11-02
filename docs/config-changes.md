@@ -41,3 +41,41 @@ Checks on the printer (cold, no filament, slow speed, hand on the e-stop):
 - [ ] **P1** `BLOBIFIER_PARK`, then `MMU_PAUSE`: a sideways move along the back to 175,355
 - [ ] **P2** `RESUME` from the pause: wipe, then return
 - [ ] **P3** `BLOBIFIER_PARK`, then `CANCEL_PRINT`: Z lift, X to 175, then Y to 100
+
+## PR #3: Happy Hare settings checked against the v4 ERCF guide
+
+Only values with a reason behind them carry over from v3; the rest go back to
+Happy Hare v4 defaults.
+
+| File | Setting | Was | Now | Source and reason |
+|---|---|---|---|---|
+| `mmu/base/mmu_parameters_unit0.cfg` | `bowden_allowable_encoder_delta` | 70.0 | 20.0 | default; 70 mm silently accepted large slips. Gate 1 had 33 load failures under v3 |
+| same | `toolhead_homing_max` | 80 | 40 | default; the sensor-to-sensor distance is about 20 mm |
+| same | `gate_parking_distance` | -12 | -23 | default, to be tested first; **see check G1** |
+| same | `gate_final_eject_distance` | 20 | 50 | v3; your preference for easy spool removal |
+| `mmu/base/mmu.cfg` | `toolhead_residual_filament` | 2 | 18.4 | v3, as a starting point; **see check T1** |
+| same | `t_macro_color` | slicer | gatemap | plan; tool colours show what is actually loaded |
+| `mmu/base/mmu_hardware_unit0.cfg` | gear `run_current` | 0.5 | 0.45 | v3; known good |
+| same | selector `run_current` | 0.4 | 0.7 | v3; known good |
+| `mmu/base/mmu_macro_vars.cfg` | `automap_strategy` | none | filament_name | plan; tools map to gates by filament name, as in Spoolman |
+| same | `restore_xy_pos` | last | next | plan; after a toolchange, go straight to the next print position |
+| `mmu/.mmu_config` | the menuconfig copies of the values above | | | Kept in step |
+
+Considered and left unchanged: `servo_duration` (already the 0.4 default),
+`gate_homing_max` and `gate_preload_homing_max` (already 100), `sync_gear_current`
+(already 100), the servo pulse widths (v4's Savox preset), and
+`servo_buzz_gear_on_down` (3 is the v4 default).
+
+**Deferred:** `auto_home: True`. Happy Hare's auto-home runs a plain `G28`, and
+the Beacon is set to contact-home on every `G28`, so it would touch the bed with
+a hot nozzle. That waits for the Beacon and `PRINT_START` PR, which moves contact
+homing into `PRINT_START` only.
+
+Checks on the printer:
+
+- [ ] **S1** Servo: re-seat the arm at DOWN as the v4 ERCF guide describes, then `MMU_SERVO POS=down|move|up` and save each with `SAVE=1`. The v3 angles were set under different pulse widths and no longer apply
+- [ ] **G1** `gate_parking_distance` -23: load and unload each gate a few times. If the selector drags on parked filament, go back to -12
+- [ ] **T1** `MMU_CALIBRATE_TOOLHEAD`: confirms `toolhead_extruder_to_nozzle`, `toolhead_sensor_to_nozzle` and `toolhead_residual_filament` for this cutter
+- [ ] **K1** Re-run selector, gear (per gate), encoder and bowden calibration. v4's saved calibration starts empty; v3's values in `mmu.V3/mmu_vars.cfg` are reference only
+- [ ] **L1** Load all 8 gates with the 20 mm delta. A gate that now fails is showing a real slip (gear tension or rotation distance), not a new problem
+- [ ] **M1** Re-map the gates by NFC, then slice a two-colour test: `MMU_START_CHECK` should map tools to gates by name
