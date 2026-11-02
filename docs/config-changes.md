@@ -79,3 +79,20 @@ Checks on the printer:
 - [ ] **K1** Re-run selector, gear (per gate), encoder and bowden calibration. v4's saved calibration starts empty; v3's values in `mmu.V3/mmu_vars.cfg` are reference only
 - [ ] **L1** Load all 8 gates with the 20 mm delta. A gate that now fails is showing a real slip (gear tension or rotation distance), not a new problem
 - [ ] **M1** Re-map the gates by NFC, then slice a two-colour test: `MMU_START_CHECK` should map tools to gates by name
+
+## PR #4: plain G28 homes by proximity; Happy Hare auto-home on
+
+| File | Setting | Was | Now | Source and reason |
+|---|---|---|---|---|
+| `config/hardware/probe.cfg` (`[beacon]`) | `home_method` | contact | proximity | plan; a plain `G28` (the Mainsail home button, Happy Hare's auto-home) is now safe at any nozzle temperature. Contact homing is unchanged where `START_PRINT` asks for it explicitly (`BEACON_HOME_Z_CONTACT`) |
+| `mmu/base/mmu_macro_vars.cfg` (`_MMU_SEQUENCE_VARS`) | `auto_home` | False | True | plan, deferred from PR #3; MMU operations home first if needed instead of failing |
+| `mmu/.mmu_config` | `auto_home` | | | Kept in step |
+
+`START_PRINT` already homes with `METHOD=proximity` and then contact-homes
+explicitly, so print starts behave the same.
+
+Checks on the printer:
+
+- [ ] **H1** Cold, after a restart: Mainsail's home-all homes Z without touching the bed
+- [ ] **H2** Hot (nozzle above 160 °C), after a restart: `MMU_LOAD` homes by itself first, without a contact error
+- [ ] **H3** A normal print start still contact-homes after the wipe
