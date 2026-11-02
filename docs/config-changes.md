@@ -479,3 +479,28 @@ Checks:
 - [ ] **J2** Make `START_PRINT` fail, e.g. start a print sliced for the wrong nozzle size. The "Print stopped" dialog shows the error, and Reprint starts the same file again
 - [ ] **J3** After a failure, MENU shows "Why did the last print stop?" and the toolhead LEDs show the error effect
 - [ ] **J4** "Turn the heaters off" turns off the nozzle, bed and part fan
+
+## PR #24: preheat and preflight check
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/accessories/preheat.cfg` (new) | `PREHEAT [MATERIAL=]`: bed to the material's temperature, nozzle 150, and for chamber materials the filter on full (state `soaking`). Defaults to the loaded gate's material. Nothing waits. `PREHEAT_OFF` turns it all off. `_PREHEAT_MENU` is the dialog | Warm up while slicing. `START_PRINT` then skips the bed soak |
+| same | Preheat stretches the idle timeout to `preheat_max_minutes`. `_RESTORE_IDLE_TIMEOUT` puts it back, from `_END_JOB`, `PREHEAT_OFF` and the failed-print "heaters off" | Otherwise Klipper's 10-minute idle timeout turns a preheat off |
+| `config/variables.cfg` | `preheat_materials` (bed, chamber: PLA 60/0, PETG 80/0, ABS 105/50, ASA 105/50, PC 110/55), `preheat_nozzle_temp: 150`, `preheat_max_minutes: 90` | The only temperatures kept on the printer side, and only for warming up. **Check they match your slicer profiles** |
+| `macros/print/preflight.cfg` (new) | `PREFLIGHT_CHECK`: for each tool the print uses, the gate must not be empty, and the material and filament name must match the slicer's. If not, it pauses before `START_PRINT` with Check again / Start anyway / Cancel | Catches a tool left on the wrong spool when automap finds no match. Happy Hare's own check only catches empty gates |
+| `docs/slicer.md` | `PREFLIGHT_CHECK` goes in the start G-code after `MMU_START_CHECK` | **Slicer change** |
+| `macros/ui/menu.cfg` | "Preheat" button (hidden while printing) | |
+| `macros/system/dependencies.cfg` | `printer.mmu.slicer_tool_map` | |
+
+Simulator: `_END_JOB` now restores the idle timeout (`cancel`/`start_*`
+gain one `SET_IDLE_TIMEOUT TIMEOUT=600` line). New preheat and preflight
+scenarios. Nothing else changed.
+
+Checks:
+
+- [ ] **P1** Add `PREFLIGHT_CHECK` to the PrusaSlicer start G-code (docs/slicer.md)
+- [ ] **P2** Check `preheat_materials` matches your PrusaSlicer bed and chamber temperatures
+- [ ] **P3** MENU → Preheat → the loaded-material button: bed heats, nozzle 150, filter on for ABS/ASA. After 15 minutes the heaters are still on. Heaters off turns them off
+- [ ] **P4** Start a print right after a preheat: `START_PRINT` skips the bed soak
+- [ ] **P5** Print with a tool mapped to a gate holding a different filament: the "Check the filament" dialog appears and the print waits. Start anyway carries on; Cancel cancels
+- [ ] **P6** A print whose tools all match starts without the dialog
