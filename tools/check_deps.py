@@ -119,6 +119,25 @@ def happy_hare_surface(hh):
     return cmds, fields, params, variables, (m.group(1) if m else '?')
 
 
+DIALOG_ARG = re.compile(r'^\s*_(?:DIALOG\w*|CAL_DONE)\b.*?\b(MSG|LABEL)="(.*)"')
+
+
+def dialog_text_problems():
+    """Dialog text reaches Klipper as a G-code line, where ; and # start a comment and
+    action:prompt treats | as a separator, so any of them cuts the dialog short."""
+    out = []
+    for path in sorted(glob.glob(os.path.join(ROOT, 'macros', '**', '*.cfg'), recursive=True)):
+        for n, line in enumerate(open(path), 1):
+            m = DIALOG_ARG.match(line)
+            if not m:
+                continue
+            text = re.sub(r'\{[^{}]*\}', '', m.group(2))  # Jinja is checked when it runs
+            bad = sorted(set(text) & set(';#*|'))
+            if bad:
+                out.append('%s:%d dialog %s contains %s' % (os.path.relpath(path, ROOT), n, m.group(1), ' '.join(bad)))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--happy-hare', help='path to a Happy Hare checkout (e.g. ~/Happy-Hare)')
@@ -142,6 +161,8 @@ def main():
     for s, where in sorted(settings.items()):
         if s not in known:
             problems.append('%s reads %s.%s, which is missing from _DEPENDENCIES settings' % (where, s[0], s[1]))
+
+    problems += dialog_text_problems()
 
     if a.happy_hare:
         hh = os.path.expanduser(a.happy_hare)

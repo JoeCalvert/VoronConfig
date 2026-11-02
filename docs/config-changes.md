@@ -647,3 +647,25 @@ Checks:
 - [ ] **E1** Make a print fail (e.g. a file sliced for the wrong nozzle): the heaters go off and, a second later, the "Print stopped" dialog shows the error message
 - [ ] **E2** `SET_VELOCITY_LIMIT` with no parameters reports square_corner_velocity 5. Re-tune the shaper with this value (Shake&Tune graphs use it)
 - [ ] **E3** Toolchanges, Blobifier purges and loads run without "Extrude only move too long" or "Move exceeds maximum extrusion" errors
+
+## PR #31: retune wizard, PID and input shaper in SAVE_CONFIG
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/workflows/retune.cfg` (new), `docs/retune.md` (new) | `RETUNE` (MENU → Calibrate → Retune): the whole retune as a checklist, with each step's buttons and the guide's values. Ticks are kept in `retune_done` | One place to work through the retune |
+| `macros/workflows/calibrate.cfg` | PID and `SHAPER_CALIBRATE` results shown in a dialog with a Save button. New axes-map, belt and mesh entries usable from the wizard | Saving was a copy-by-hand step |
+| `printer.cfg` (SAVE_CONFIG block) | Extruder and bed PID and the shaper types/frequencies moved here, same values | Klipper can only save these where it owns them. Values in an included file can't be overridden by `SAVE_CONFIG` |
+| `config/hardware/extruder.cfg`, `heated_bed.cfg`, `config/software/input_shaper.cfg` | `control`, `pid_*`, `shaper_type_*`, `shaper_freq_*` removed. Damping ratios stay (`SHAPER_CALIBRATE` doesn't save them) | Moved above |
+| `tools/deploy.py` | The SAVE_CONFIG block is merged: the printer's values win, and anything only the repo has is added | A deploy no longer overwrites what you saved on the printer |
+| `config/variables.cfg` | `belt_check_position_xy: 175, 175` | Where the wizard parks for belt measuring, about 150 mm from the front idlers |
+| `tools/check_deps.py` | Fails on `;`, `#`, `*` or `\|` in dialog text | Klipper reads them as a comment or separator and cuts the dialog short. It caught four in this PR |
+
+Simulator: four new scenarios (`retune_list`, `retune_steps`, `retune_ercf`, `cal_shaper_klipper`). Nothing else changed.
+
+Checks:
+
+- [ ] **R1** After deploying, `printer.cfg` on the printer still has its `#*# [beacon model default]` block, now with the PID and shaper sections above it. Klipper starts, and `SET_INPUT_SHAPER` reports mzv 47.6 / ei 43.6
+- [ ] **R2** `RETUNE` shows nine steps. Mark one done, restart Klipper: it's still ticked
+- [ ] **R3** Run one PID from the wizard and press Save: Klipper restarts with the new values in the SAVE_CONFIG block. Deploy again: they're kept
+- [ ] **R4** The ERCF step's buttons each run (motors off, selector, advance, move 100 mm) and the dialog comes back afterwards
+- [ ] Then work through the retune itself (`docs/retune.md`)

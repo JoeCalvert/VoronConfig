@@ -4,7 +4,8 @@ from macrosim import D
 COMMANDS = ['BEACON_HOME_Z_CONTACT', 'BEACON_MODEL_SELECT', 'BLOBIFIER_CLEAN', 'BLOBIFIER_PARK',
             'MMU_RECOVER', 'MMU_UNLOCK', 'MMU_HOME', 'MMU_LOAD', 'MMU_UNLOAD', 'MMU_EJECT',
             'MMU_PRELOAD', 'MMU_CHECK_GATE', 'MMU_SELECT', 'MMU_CHANGE_TOOL', 'MMU_TTG_MAP',
-            'SET_PAUSE_NEXT_LAYER', 'MMU_ENDLESS_SPOOL', 'AXES_SHAPER_CALIBRATION', 'COMPARE_BELTS_RESPONSES']
+            'SET_PAUSE_NEXT_LAYER', 'MMU_ENDLESS_SPOOL', 'MMU_CALIBRATE_SELECTOR', 'MMU_CALIBRATE_GEAR',
+            'MMU_CALIBRATE_ENCODER', 'MMU_CALIBRATE_BOWDEN', 'MMU_CALIBRATE_GATE', 'MMU_CALIBRATE_TOOLHEAD', 'MMU_TEST_MOVE', 'MMU_MOTORS_OFF', 'AXES_MAP_CALIBRATION', 'AXES_SHAPER_CALIBRATION', 'COMPARE_BELTS_RESPONSES']
 
 # A plausible printer state for rendering macros. Override per scenario.
 def make_state(**o):
@@ -18,7 +19,8 @@ def make_state(**o):
       'temperature_sensor Chamber': D(temperature=45),
       'save_variables': D(variables=D(nozzle_diameter=0.6, maintenance_hours=D(filter=99.5, lube=12.0))),
       'configfile': D(settings=D({'beacon': D(home_method='proximity'), 'beacon model default': D(), 'mmu': D(disable_heater=600)}),
-                      save_config_pending_items=D(extruder=D(pid_kp='28.112', pid_ki='3.241', pid_kd='60.950')),
+                      save_config_pending_items=D(extruder=D(pid_kp='28.112', pid_ki='3.241', pid_kd='60.950'),
+                                                input_shaper=D(shaper_type_x='mzv', shaper_freq_x='58.2', shaper_type_y='mzv', shaper_freq_y='44.0')),
                       config=D(stepper_x=D(position_max='353'), stepper_y=D(position_max='359'), stepper_z=D(position_max='330'),
                                mmu=D(happy_hare_version='4.1.0'))),
       'gcode': D(commands=D({c: D() for c in COMMANDS})),

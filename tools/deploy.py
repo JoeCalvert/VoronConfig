@@ -19,7 +19,10 @@ What it does:
       wildcard, so a stale copy of a moved file would be loaded twice.
  5. Backs the whole config folder up to ~/printer_data/config_deploys/ first.
  6. Copies the files. The printer keeps what it owns:
-    - the SAVE_CONFIG block at the end of printer.cfg (Beacon model, etc.);
+    - the SAVE_CONFIG block at the end of printer.cfg (Beacon model, PID,
+      input shaper...). Sections or options that only the repository's block
+      has are added to it, so values moved into SAVE_CONFIG arrive once;
+      after that the printer's values win;
     - KlipperScreen.conf's auto-generated section;
     - mmu/mmu_vars.cfg (Happy Hare and save_variables state);
     - ShakeTune_results.
@@ -52,6 +55,51 @@ def api(base, path, method='GET', timeout=10):
         return json.load(r)
 
 
+def _save_config_sections(block):
+    """Split a SAVE_CONFIG block into (header lines, {section: [[option, lines]]})."""
+    header, sections, cur, opt = [], {}, None, None
+    for line in block.splitlines():
+        if not line.startswith('#*#'):
+            continue
+        rest = line[3:]
+        body = rest.strip()
+        if body.startswith('[') and body.endswith(']'):
+            cur, opt = body[1:-1], None
+            sections.setdefault(cur, [])
+        elif cur is None:
+            header.append(line)
+        elif not body:
+            opt = None                                   # '#*#' separator
+        elif rest[:1] == ' ' and rest[1:2] not in (' ', '\t') and '=' in body:
+            opt = [body.split('=')[0].strip(), [line]]   # 'key = value'
+            sections[cur].append(opt)
+        elif opt is not None:
+            opt[1].append(line)                          # continuation of a multi-line value
+    return header, sections
+
+
+def merge_save_config(repo_block, live_block):
+    """The printer's SAVE_CONFIG block, plus any section or option that only the
+    repository's block has. The printer's values always win; this only fills in
+    values the repository moved there (e.g. PID moved out of extruder.cfg)."""
+    header, live = _save_config_sections(live_block)
+    _, repo = _save_config_sections(repo_block)
+    for name, opts in repo.items():
+        have = {k for k, _ in live.get(name, [])}
+        missing = [o for o in opts if o[0] not in have]
+        if missing:
+            live.setdefault(name, []).extend(missing)
+    out = list(header)
+    for name, opts in live.items():
+        out.append('#*# [%s]' % name)
+        for _, lines in opts:
+            out.extend(lines)
+        out.append('#*#')
+    while out and out[-1] == '#*#':
+        out.pop()
+    return '\n'.join(out) + '\n'
+
+
 def merged(path, src, dst):
     """Repository content, but keep the printer's auto-generated block."""
     data = open(src, encoding='utf-8', errors='surrogateescape').read()
@@ -59,7 +107,11 @@ def merged(path, src, dst):
     if marker and os.path.isfile(dst):
         live = open(dst, encoding='utf-8', errors='surrogateescape').read()
         if marker in live:
-            data = data.split(marker)[0] + live[live.index(marker):]
+            top, repo_block = data.split(marker)[0], marker + data.split(marker, 1)[1] if marker in data else ''
+            live_block = live[live.index(marker):]
+            if path == 'printer.cfg' and repo_block:
+                live_block = merge_save_config(repo_block, live_block)
+            data = top + live_block
     return data
 
 
