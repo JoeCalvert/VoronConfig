@@ -1,7 +1,10 @@
 """Tiny Klipper macro simulator: renders our gcode_macro templates and expands
 calls to other macros of ours, producing the primitive command sequence."""
 import ast, glob, os, re, shlex, sys, copy
-import jinja2
+try:
+    import jinja2       # only needed to render; parse_files() (used by check_deps) works without it
+except ImportError:
+    jinja2 = None
 
 class D(dict):
     def __getattr__(s, k):
@@ -64,7 +67,7 @@ def parse_files(root):
             macros[n[12:].strip().upper()] = {'gcode': '\n'.join(lines), 'vars': vars_, 'opts': opts}
     return macros, secs
 
-ENV = jinja2.Environment('{%', '%}', '{', '}', extensions=['jinja2.ext.do'])
+ENV = jinja2.Environment('{%', '%}', '{', '}', extensions=['jinja2.ext.do']) if jinja2 else None
 
 class Sim:
     def __init__(self, root, state):
