@@ -206,8 +206,9 @@ this printer's real start sequence. **PA and EM per filament** (or Calibrate →
 PA / EM test print, or `CAL_FILAMENT TEST=pa|em`):
 
 1. Pick the gate holding the filament.
-2. Pick a range. PA: **Wide** (0–0.08) first, then **Fine** around your pick if
-   the best two look alike. EM: **Coarse** (0.86–1.04 in 0.02 steps), then
+2. Pick a range. PA is two-phase, as in Ellis's method: **Wide** (0–0.08 in
+   0.004 steps) finds the area, then **Fine** (±0.01 in 0.001 steps around your
+   pick) pins it down; the result dialog offers Fine first after a Wide test. EM: **Coarse** (0.86–1.04 in 0.02 steps), then
    **Fine** (±0.03 in 0.01 steps) around your pick.
 3. It prints. `tools/calib_gcode.py` writes the test to
    `gcodes/calibration/` and starts it as a normal print: `START_PRINT` (nozzle
