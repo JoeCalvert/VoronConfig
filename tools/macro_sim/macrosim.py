@@ -73,6 +73,26 @@ class Sim:
         self.out = []
     def printer(self):
         p = D(copy.deepcopy(self.state))
+        # printer.configfile comes from the real config files, so a macro that
+        # reads a section the printer doesn't have fails here as it would there.
+        # The scenario state can override individual values.
+        def typed(v):
+            v = v.strip()
+            if v.lower() in ('true', 'false'): return v.lower() == 'true'
+            try: return int(v)
+            except ValueError: pass
+            try: return float(v)
+            except ValueError: return v
+        real_cfg = {s: {k: v.strip() for k, v in o.items()} for s, o in self.secs.items()
+                    if not s.startswith(('gcode_macro ', 'include '))}
+        real_set = {s: {k: typed(v) for k, v in o.items()} for s, o in real_cfg.items()}
+        cf = p.get('configfile', D())
+        for key, real in (('config', real_cfg), ('settings', real_set)):
+            merged = copy.deepcopy(real)
+            for s, o in (cf.get(key) or {}).items():
+                merged.setdefault(s, {}).update(o)
+            cf[key] = wrap(merged)
+        p['configfile'] = cf
         for n, m in self.macros.items():
             p['gcode_macro ' + n] = wrap(m['vars'])
             p['gcode_macro ' + n.lower()] = p['gcode_macro ' + n]

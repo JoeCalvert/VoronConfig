@@ -762,3 +762,16 @@ Klipper's config reader cuts every line at its first `#`, even inside a quoted s
 | `tools/klipper_load_check.py` (new), CI | Loads the config with Klipper's own reader and compiles every template in Klipper's Jinja environment (all errors, not just the first) | Catches anything that stops Klipper starting before it reaches the printer |
 
 - [ ] **K1** Deploy, `RESTART`: Klipper starts
+
+## PR #38: CHECK_CONFIG failed ("'dict object' has no attribute 'mmu'")
+
+Happy Hare v4 has no `[mmu]` section: its settings are in `[mmu_machine]`, `[mmu_parameters]` and others. Two macros still read the old section.
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/state/startup_check.cfg` | Happy Hare version from `[mmu_machine]` | Reading `[mmu]` stopped CHECK_CONFIG |
+| `macros/mmu_hooks/recovery.cfg` | `disable_heater` from `[mmu_parameters]` | It silently fell back to 600 s whatever you set |
+| `tools/check_deps.py` | Fails when a macro reads a config section the config doesn't have, or a Happy Hare option the section doesn't set | It only checked the option name existed somewhere in Happy Hare |
+| `tools/macro_sim/` | `printer.configfile` is built from the real config files (scenarios can still override values) | Its made-up state had an `[mmu]` section, so it passed |
+
+- [ ] **K2** After deploying, `CHECK_CONFIG` runs without errors and shows the Happy Hare version
