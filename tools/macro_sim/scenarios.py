@@ -42,6 +42,9 @@ SCENARIOS = [
  ('preflight_ok', dict(), ['PREFLIGHT_CHECK']),
  ('preflight_mismatch', dict(mmu=MMU(gate_material=['PLA', 'PLA', 'ABS', ''], gate_filament_name=['Galaxy Black', 'White', '', ''], slicer_tool_map=D(referenced_tools=[0, 1, 2], initial_tool=0, tools=D({'0': D(material='PLA', name='Galaxy Black'), '1': D(material='PETG', name='Orange'), '2': D(material='ABS', name='Red')})), gate_status=[1, 1, 0, -1])),
     ['PREFLIGHT_CHECK', 'PREFLIGHT_CHECK RECHECK=1', '_PREFLIGHT_CONTINUE']),
+ ('nozzle_change', dict(), ['NOZZLE_CHANGE', '_NOZZLE_CHANGE_PREPARE', '_NOZZLE_CHANGE_DONE DIAMETER=0.4']),
+ ('spool_swap', dict(mmu=MMU(print_state='ready')), ['SPOOL_SWAP', '_SPOOL_SWAP_EJECT GATE=1', '_SPOOL_SWAP_PRELOAD GATE=1']),
+ ('spool_swap_empty_gate', dict(mmu=MMU(print_state='ready')), ['SPOOL_SWAP GATE=2', '_SPOOL_SWAP_RESULT GATE=2']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 

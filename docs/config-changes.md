@@ -504,3 +504,22 @@ Checks:
 - [ ] **P4** Start a print right after a preheat: `START_PRINT` skips the bed soak
 - [ ] **P5** Print with a tool mapped to a gate holding a different filament: the "Check the filament" dialog appears and the print waits. Start anyway carries on; Cancel cancels
 - [ ] **P6** A print whose tools all match starts without the dialog
+
+## PR #25: nozzle-change and spool-swap workflows
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/workflows/nozzle_change.cfg` (new) | `NOZZLE_CHANGE`: unload if loaded, nozzle heater off, `SERVICE_POSITION`; pick the new size (runs `NOZZLE_SET`); reminder to switch the PrusaSlicer profile | The Revo swap in one flow. `START_PRINT`'s contact calibration handles the new nozzle's height |
+| `config/variables.cfg` | `nozzle_sizes: [0.25, 0.4, 0.5, 0.6, 0.8]` | Buttons offered |
+| `macros/workflows/spool_swap.cfg` (new) | `SPOOL_SWAP [GATE=]`: pick the gate, `MMU_EJECT` (it unloads the toolhead first if that gate is loaded), change the spool, scan its tag, `MMU_PRELOAD`, then show what the gate now holds | Today that's three Happy Hare buttons in the right order. Not while printing (Happy Hare refuses) |
+| `macros/ui/menu.cfg` | "Change a spool" and "Change the nozzle" (hidden during a print) | |
+| `printer.cfg` | `[include macros/workflows/*.cfg]` | |
+| `macros/system/dependencies.cfg` | `MMU_EJECT` | |
+
+Simulator: new scenarios for both. MENU gains the two buttons. Nothing else changed.
+
+Checks:
+
+- [ ] **W1** `NOZZLE_CHANGE` with filament loaded: it unloads, turns the heater off and moves to the front. Picking a size records it (`NOZZLE_SET` with no arguments shows it)
+- [ ] **W2** `SPOOL_SWAP` on a loaded gate: unload, eject, then after scanning and preloading the dialog shows the new spool's material and name
+- [ ] **W3** Preload with the filament not pushed in far enough: "Try again" appears
