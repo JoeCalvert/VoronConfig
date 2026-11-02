@@ -237,3 +237,22 @@ Checks:
 - [ ] **E2** While printing, the logo matches the loaded filament's colour and changes after a toolchange
 - [ ] **E3** An MMU error shows the error effect; after the resume the print colours come back
 - [ ] **E4** No `SET_LED` errors in the console (the logo LEDs are GRB, the nozzle LEDs GRBW)
+
+## PR #12: firmware updates with UKAM
+
+| File | Change | Reason |
+|---|---|---|
+| `ukam/mcus.ini` | new: Octopus (USB), SB2040 (CAN), MMB (CAN, `mcu unit0`), Pi host MCU, Beacon | plan; one command updates Klipper and flashes only the boards that need it |
+| `ukam/config/config.<board>` | moved from `boards/<board>/klipper_*.config` (the variant each flash script actually used) | UKAM keeps each board's Kconfig there, so firmware settings stay versioned with the config |
+| `boards/*/flash-klipper.sh` | removed | Replaced by `mcus.ini`. They used Katapult's old `flash_can.py` (now `flashtool.py`) and sent build errors to `/dev/null` |
+| `boards/*/*.old`, `mellow_sb2040_v1.bin` | removed | menuconfig backups and a build output |
+| `moonraker.conf` | `[update_manager update_klipper_and_mcus]` | UKAM updates itself through Moonraker |
+
+Katapult bootloader Kconfigs and the alternative transport Kconfigs (USB/UART/CAN variants) stay in `boards/` for reference.
+
+Checks:
+
+- [ ] **U1** Install UKAM on the Pi: `cd ~ && git clone https://github.com/fbeauKmi/update_klipper_and_mcus.git ukam`
+- [ ] **U2** First run with `~/ukam/ukam.sh -m`, and check each board's menuconfig, especially the SB2040 (UKAM warns that RP2040 configs can be corrupted since Klipper added RP2350 support)
+- [ ] **U3** All four boards and the Beacon report the new version after the run; Klipper starts without "MCU protocol" errors
+- [ ] **U4** The Octopus flash: if `make flash` doesn't put it into Katapult, switch its `action_command` to Katapult's `flashtool.py` with the board's USB serial, as in UKAM's examples
