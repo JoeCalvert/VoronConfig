@@ -256,3 +256,15 @@ Checks:
 - [ ] **U2** First run with `~/ukam/ukam.sh -m`, and check each board's menuconfig, especially the SB2040 (UKAM warns that RP2040 configs can be corrupted since Klipper added RP2350 support)
 - [ ] **U3** All four boards and the Beacon report the new version after the run; Klipper starts without "MCU protocol" errors
 - [ ] **U4** The Octopus flash: if `make flash` doesn't put it into Katapult, switch its `action_command` to Katapult's `flashtool.py` with the board's USB serial, as in UKAM's examples
+
+## PR #13: plugin settings audit
+
+| File | Setting | Was | Now | Reason |
+|---|---|---|---|---|
+| `config/software/bed_mesh.cfg` | `horizontal_move_z` | 12 | default | Beacon scans at its own trigger distance (2 mm) and doesn't use it |
+| `macros/base/start_print.cfg` | `BED_MESH_CALIBRATE RUNS=2` | passed | removed | `mesh_runs: 2` in `[beacon]` is the one owner |
+| `docs/defaults-audit.md` | plugin table | | | Beacon, autotune, Shake&Tune and LED Effects checked against each plugin's defaults; everything else kept, with reasons |
+
+Checks:
+
+- [ ] **P4** The adaptive mesh still does two passes (console shows Beacon running two mesh passes) and takes about the same time

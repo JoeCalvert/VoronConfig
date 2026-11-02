@@ -28,7 +28,8 @@ ratios) are left out of the list. Happy Hare's options are audited through
 
 Decided in PR #10: `pwm_cycle_time`, `gcode_arcs` resolution and the two bed
 mesh split settings go back to the default. `position_min` stays at -15.
-`horizontal_move_z` is still to be checked against the Beacon docs.
+`horizontal_move_z` went back to the default in PR #13: Beacon scans at its own
+trigger distance, so it had no effect.
 
 | Option | Default | Ours | Proposal |
 |---|---|---|---|
@@ -63,8 +64,23 @@ Options written out with the default value (for example `interpolate: True`,
 `full_steps_per_rotation: 200`) are harmless. They'll be dropped when each file
 is rewritten, rather than in a churn-only change here.
 
-## Not yet audited
+## Plugins (PR #13)
 
-Plugin sections need checking against each project's own docs: Beacon,
-`autotune_tmc` (including whether to keep autotune on the extruder), LED Effects
-and Shake&Tune.
+Checked against each plugin's source for its defaults.
+
+| Plugin option | Default | Ours | Decision |
+|---|---|---|---|
+| Beacon `home_method` | proximity | proximity | Keep (set explicitly in PR #4, with a comment) |
+| Beacon `home_method_when_homed` | proximity | proximity | Keep |
+| Beacon `home_autocalibrate` | always | never | Keep: it applies to contact homing, which only `START_PRINT` does, and that calibrates explicitly (`CALIBRATE=1`) |
+| Beacon `contact_max_hotend_temperature` | 180 | 160 | Keep: a margin above the 150 °C probing temperature, protecting the PEI |
+| Beacon `mesh_main_direction` | y | x | Keep (tuning choice) |
+| Beacon `mesh_runs` | 1 | 2 | Keep. Now the only place: `START_PRINT` no longer also passes `RUNS=2` |
+| Beacon `home_z_hop` / `home_xy_move_speed` / `speed` / `lift_speed` | 0 / 50 / 5 / speed | 15 / 250 / 10 / 15 | Keep: clearance before homing, and faster travel |
+| Beacon `x_offset` | 0 | 0 | Keep explicit: hardware fact |
+| `[bed_mesh] horizontal_move_z` | 5 | 12 | **Default**: Beacon scans at its trigger distance (2 mm) and doesn't use it |
+| `autotune_tmc` X/Y | | `tuning_goal: performance`, measured `sg4_thrs` 109 / 111 | Keep (measured) |
+| `autotune_tmc` Z ×4 | | `tuning_goal: silent` | Keep (sets StealthChop on Z) |
+| `autotune_tmc extruder` | | motor only (goal `auto` → silent) | Keep; revisit only if the extruder skips at high flow |
+| `[shaketune]` | | all defaults | Keep |
+| LED Effects | | effects only (PR #11) | Keep |
