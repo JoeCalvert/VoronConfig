@@ -28,7 +28,8 @@ jobs:
 
       - name: PrusaSlicer presets build (sample Spoolman data)
         run: |
-          python3 tools/build_slicer_profiles.py --spoolman-json slicer/test_spoolman_filaments.json --out /tmp/presets
+          python3 tools/build_slicer_profiles.py --spoolman-json slicer/test_spoolman_filaments.json --out /tmp/presets --reference /tmp/slicer-reference.md
+          diff -q /tmp/slicer-reference.md docs/slicer-reference.md || { echo "docs/slicer-reference.md is out of date: rebuild with --reference"; exit 1; }
           python3 tools/calib_gcode.py pa --out /tmp/cal --name pa_ci --tool 0 --nozzle 0.4 --hotend 240 --bed 100 --start 0 --step 0.004 --count 21 --restore-accel 7000
           python3 tools/calib_gcode.py em --out /tmp/cal --name em_ci --tool 0 --nozzle 0.6 --hotend 240 --bed 100 --start 0.86 --step 0.02 --count 10 --restore-accel 7000
           python3 tools/calib_gcode.py flow --out /tmp/cal --name flow_ci --tool 0 --nozzle 0.6 --nozzle-type hf --hotend 250 --bed 100 --start 10 --step 2 --count 15 --restore-accel 7000

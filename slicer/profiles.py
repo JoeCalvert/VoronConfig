@@ -82,6 +82,11 @@ PRINTER = dict(
     color_change_gcode='PAUSE_FOR_USER',  # there is no M600 on this printer
     template_custom_gcode='',
     bed_shape='0x0,350x0,350x350,0x350',
+    # One-object-at-a-time printing (Stencil) must not hit finished objects:
+    # the toolhead's radius around the nozzle, and the height from the nozzle
+    # tip to the gantry. PrusaSlicer's Voron profile values. tune: measure yours.
+    extruder_clearance_radius=75, extruder_clearance_height=33,
+    host_type='moonraker',
     max_print_height=325,
     z_offset=0,
     # Happy Hare's cutter does tip shaping: PrusaSlicer's single-extruder
@@ -109,9 +114,12 @@ PRINTER = dict(
 # ---------------------------------------------------------------------------
 ACCEL = dict(                              # fraction of max_accel
     default_acceleration=0.7,
-    external_perimeter_acceleration=0.45,   # ringing on the visible surface
-    perimeter_acceleration=0.7,
-    top_solid_infill_acceleration=0.45,
+    # Inner and outer walls alike: PA is tuned at one speed/acceleration, and
+    # walls that change speed between them show it (Voron Discord). Well below
+    # the shaper's maximum: high wall acceleration amplifies PA smoothing lag.
+    external_perimeter_acceleration=0.5,
+    perimeter_acceleration=0.5,
+    top_solid_infill_acceleration=0.3,      # PrusaSlicer's Voron profile: 1200; Prusa's: 800-2000
     solid_infill_acceleration=1.0,
     infill_acceleration=1.0,
     bridge_acceleration=0.45,
@@ -120,7 +128,7 @@ ACCEL = dict(                              # fraction of max_accel
 PRINT = dict(
     first_layer_acceleration=500,
     travel_short_distance_acceleration=250,  # only the tiny hops (< retract_before_travel)
-    external_perimeter_speed=150, perimeter_speed=200, small_perimeter_speed='50%',
+    external_perimeter_speed=150, perimeter_speed=150, small_perimeter_speed='50%',
     infill_speed=300, solid_infill_speed=250, top_solid_infill_speed=150, gap_fill_speed=150,
     bridge_speed=50, over_bridge_speed='60%',
     support_material_speed=200, support_material_interface_speed='60%',
@@ -128,13 +136,17 @@ PRINT = dict(
     travel_speed=350, travel_speed_z=15, max_print_speed=350,
     # Overhang speeds: index 0 is 0% overlap (bridging) and must be the
     # slowest; 3 is 75% overlap (barely overhanging). Percent of the outer wall.
+    # Slow down only where it matters, and not far: big speed swings are what
+    # show (the Orca port's author on the Voron Discord: no slowdown down to
+    # 50% overlap, ~70 at 25%, bridge speed when bridging).
     enable_dynamic_overhang_speeds=1,
-    overhang_speed_0=15, overhang_speed_1=25, overhang_speed_2='40%', overhang_speed_3='80%',
+    overhang_speed_0=50, overhang_speed_1=70, overhang_speed_2='100%', overhang_speed_3='100%',
     perimeter_generator='arachne', perimeters=3, extra_perimeters=0, extra_perimeters_on_overhangs=0,
     ensure_vertical_shell_thickness='enabled', thin_walls=0, gap_fill_enabled=1,
     top_solid_layers=5, top_solid_min_thickness=0.7, bottom_solid_layers=4, bottom_solid_min_thickness=0.5,
     top_one_perimeter_type='top', top_fill_pattern='monotonic', bottom_fill_pattern='monotonic',
-    fill_pattern='cubic', fill_density='15%', infill_anchor='600%', infill_anchor_max=20, infill_overlap='25%',
+    # Short infill anchors, as PrusaSlicer's Voron (2/12) and Prusa (2-2.5) profiles: long ones cost time.
+    fill_pattern='cubic', fill_density='15%', infill_anchor=2.5, infill_anchor_max=12, infill_overlap='25%',
     solid_infill_below_area=0,
     bridge_flow_ratio=1, thick_bridges=0, dont_support_bridges=0,
     # Seams: aligned at the sharpest corner, scarfed where the wall is smooth
@@ -149,7 +161,8 @@ PRINT = dict(
     elefant_foot_compensation=0,          # tune: measure the base of a test part (docs/slicer.md)
     arc_fitting='disabled',               # Klipper has no [gcode_arcs] here
     gcode_label_objects='firmware',       # EXCLUDE_OBJECT + adaptive mesh
-    gcode_resolution=0.0125,
+    gcode_resolution=0.008,               # as PrusaSlicer's Voron and Prusa profiles; smoother curves
+    skirts=1, skirt_distance=6, skirt_height=1,   # Blobifier primes; one loop shows the first layer
     complete_objects=0, wipe_tower=0, single_extruder_multi_material_priming=0,
     wipe_tower_extruder=0, ooze_prevention=0,
     output_filename_format='{input_filename_base}_{nozzle_diameter[0]}n_{layer_height}mm.gcode',
@@ -163,18 +176,24 @@ PRINT = dict(
 # size, and its changes from PRINT. Print preset names: "0.20mm Standard @0.40".
 # ---------------------------------------------------------------------------
 INTENTS = [
+    # Classic walls: constant widths, no Arachne width-change artefacts on the
+    # outer wall (reported on the Voron Discord); Arachne stays where thin
+    # features matter more than the surface.
     dict(name='Quality', layers={0.25: 0.08, 0.40: 0.12, 0.60: 0.20},
-         set=dict(external_perimeter_speed=100, top_solid_infill_speed=100,
-                  external_perimeter_acceleration=0.35, top_solid_infill_acceleration=0.35)),
+         set=dict(external_perimeter_speed=100, perimeter_speed=100, top_solid_infill_speed=100,
+                  external_perimeter_acceleration=0.35, perimeter_acceleration=0.35,
+                  top_solid_infill_acceleration=0.25, perimeter_generator='classic')),
     dict(name='Standard', layers={0.25: 0.12, 0.40: 0.20, 0.60: 0.30, 0.80: 0.40}, set=dict()),
     dict(name='Draft', layers={0.40: 0.28, 0.60: 0.40, 0.80: 0.55},
-         set=dict(perimeters=2, fill_density='10%', external_perimeter_speed=200,
+         set=dict(perimeters=2, fill_density='10%', external_perimeter_speed=200, perimeter_speed=200,
+                  automatic_infill_combination=1, automatic_infill_combination_max_layer_height='100%',
                   top_solid_min_thickness=0.6, bottom_solid_min_thickness=0.5,
                   seam_position='nearest', scarf_seam_placement='nowhere')),
     # Voron Print It Forward part requirements: 4 walls, 5 top/bottom, 40% infill.
     dict(name='PIF', layers={0.40: 0.20}, set=dict(
         perimeters=4, top_solid_layers=5, bottom_solid_layers=5, top_solid_min_thickness=1,
-        bottom_solid_min_thickness=1, fill_density='40%', fill_pattern='cubic')),
+        bottom_solid_min_thickness=1, fill_density='40%', fill_pattern='cubic',
+        perimeter_generator='classic')),          # as PrusaSlicer's Voron printed-parts profile
     dict(name='Gridfinity', layers={0.60: 0.35}, set=dict(
         perimeters=2, fill_pattern='lightning', fill_density='30%', top_solid_layers=4, bottom_solid_layers=2,
         top_fill_pattern='monotoniclines', bottom_fill_pattern='monotoniclines', elefant_foot_compensation=0.2,
@@ -209,36 +228,50 @@ INTENTS = [
 MATERIALS = {
     'PLA': dict(filament_type='PLA', temperature=215, bed_temperature=60, max_flow=21, em=0.98,
                 fan=(100, 100), bridge_fan=100, disable_fan_first_layers=1, slowdown_below_layer_time=8,
-                min_print_speed=15, pa={'0.25': 0.06, '0.40': 0.035, '0.40_obx': 0.035, '0.60': 0.03,
+                overhang_fan=(100, 100, 100, 100), min_print_speed=15, pa={'0.25': 0.06, '0.40': 0.035, '0.40_obx': 0.035, '0.60': 0.03,
                                         '0.60_hf': 0.027, '0.80': 0.025}),
     'PETG': dict(filament_type='PETG', temperature=240, bed_temperature=80, max_flow=17, em=0.935,
                  fan=(0, 0), bridge_fan=70, disable_fan_first_layers=2, slowdown_below_layer_time=10,
+                 overhang_fan=(60, 40, 20, 0),
                  min_print_speed=15, retract_length=None,
                  pa={'0.25': 0.07, '0.40': 0.04, '0.40_obx': 0.04, '0.60': 0.035, '0.60_hf': 0.032, '0.80': 0.03}),
     'ABS': dict(filament_type='ABS', temperature=245, bed_temperature=110, max_flow=22, em=0.965,
-                fan=(70, 70), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=5,
+                fan=(70, 70), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=8,
+                overhang_fan=(100, 90, 80, 70),
                 min_print_speed=15,
                 pa={'0.25': 0.06, '0.40': 0.033, '0.40_obx': 0.033, '0.60': 0.03, '0.60_hf': 0.028, '0.80': 0.025}),
     'ASA': dict(filament_type='ASA', temperature=250, bed_temperature=110, max_flow=20, em=0.94,
-                fan=(80, 80), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=5,
+                fan=(80, 80), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=8,
+                overhang_fan=(100, 95, 90, 80),
                 min_print_speed=15,
                 pa={'0.25': 0.06, '0.40': 0.03, '0.40_obx': 0.03, '0.60': 0.028, '0.60_hf': 0.028, '0.80': 0.025}),
     'PC': dict(filament_type='PC', temperature=270, bed_temperature=110, max_flow=12, em=0.95,
-               fan=(0, 30), bridge_fan=50, disable_fan_first_layers=3, slowdown_below_layer_time=5,
+               fan=(0, 30), bridge_fan=50, disable_fan_first_layers=3, slowdown_below_layer_time=8,
+               overhang_fan=(50, 30, 10, 0),
                min_print_speed=15, pa={}),
     'TPU': dict(filament_type='FLEX', temperature=230, bed_temperature=50, max_flow=3.5, em=1.0,
                 fan=(60, 100), bridge_fan=100, disable_fan_first_layers=1, slowdown_below_layer_time=8,
+                overhang_fan=(100, 100, 100, 100),
                 min_print_speed=10, retract_length=0.4, pa={'0.40': 0.11, '0.40_obx': 0.11}),
 }
 # Used for any nozzle a material has no 'pa' value for, so a tool change never
 # keeps the previous filament's pressure advance.
 GENERIC_PA = {'0.25': 0.06, '0.40': 0.035, '0.40_obx': 0.035, '0.60': 0.03, '0.60_hf': 0.028, '0.80': 0.025}
+# Abrasive filaments (carbon/glass fill) only show for printers with a hardened
+# nozzle (NOZZLES type 'obxidian'). Spoolman extra 'abrasive', else the name.
+ABRASIVE_NAME = r'(?i)\b(cf|gf|carbon|carbonx|glass|fibre|fiber)\b'
+HARDENED_TYPES = ('obxidian',)
 MATERIAL_ALIASES = {'PET': 'PETG', 'PETG+': 'PETG', 'ABS+': 'ABS', 'FLEX': 'TPU', 'TPU95A': 'TPU', 'PLA+': 'PLA'}
 
 FILAMENT = dict(
     filament_diameter=1.75,
-    cooling=1, fan_always_on=1, cooling_slowdown_logic='consistent_surface',
-    enable_dynamic_fan_speeds=0, full_fan_speed_layer=0, fan_below_layer_time=60,
+    cooling=1, fan_always_on=1, fan_below_layer_time=60,
+    # Slow small layers by slowing infill first, keeping the walls' speed (and
+    # so their look); ramp back over 10 mm, as PrusaSlicer's Voron profile.
+    cooling_slowdown_logic='consistent_surface', cooling_perimeter_transition_distance=10,
+    full_fan_speed_layer=3,               # fan ramps up over the first layers
+    # More fan on overhangs (overhang_fan per material, 0%..75% overlap)
+    enable_dynamic_fan_speeds=1,
     start_filament_gcode='',              # written by the generator: pressure advance per nozzle
     end_filament_gcode='""',
     # Happy Hare cuts and parks the filament: no PrusaSlicer ramming or tip forming.

@@ -112,26 +112,16 @@ change: `SET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}` and
 
 ## Why the settings are what they are
 
-- **Speeds are generous; flow does the limiting.** On a Revo, the hotend runs
-  out of melt long before the motion system runs out of speed, so the print
-  presets ask for high speeds and PrusaSlicer slows every move to the flow
-  limit: the smaller of the nozzle's (`max_flow` in `NOZZLES`: 12 mm³/s brass,
-  24 HF, from E3D's figures and the Voron Discord) and the filament's.
-- **The outer wall is the exception:** 150 mm/s (100 in Quality) at 45 % of
-  `max_accel`, because it's what you see. Top surfaces likewise.
-- **Accelerations** are fractions of `max_accel`: walls 45 %, inner walls
-  70 %, infill and travel 100 %. Re-tune the input shaper, update `max_accel`,
-  rebuild, and every preset follows.
-- **Overhangs** slow down with less support: bridging 15 mm/s, 25 % overlap
-  25 mm/s, then 40 % and 80 % of the outer-wall speed. (The old presets had
-  these reversed: steep overhangs fast, gentle ones at 10 mm/s.)
-- **Line widths** are multiples of the nozzle: 1.125× for walls and solid
-  infill, 1.25× first layer and sparse infill, 1.0× top surface.
-- **Shells** by thickness as well as count (top at least 0.7 mm, bottom
-  0.5 mm), so thin layers still get solid skins.
-- **Seams** aligned, with scarf joints on smooth walls.
-- **Supports** off by default (enable per print); arc fitting off; travel
-  capped at `max_velocity`.
+Every setting, its value and the reasoning (with sources: the Voron Discord,
+PrusaSlicer's own Voron and Prusa profiles, E3D): `docs/slicer-settings.md`.
+The complete key-by-key list of a printer, print and filament preset:
+`docs/slicer-reference.md`, regenerated with `--reference docs/slicer-reference.md`.
+
+In short: the hotend's flow limit sets the pace, so feature speeds are high and
+PrusaSlicer slows each move to the limit; walls run at one speed and
+acceleration, well under the shaper's maximum, so PA holds; overhangs slow only
+near bridging; Classic walls for Quality and PIF; abrasive filaments only on the
+hardened nozzle.
 
 ## What gets tuned, and how
 
@@ -151,6 +141,9 @@ change: `SET_PRINT_STATS_INFO CURRENT_LAYER={layer_num + 1}` and
 | Max acceleration | `config/machine.cfg` | RETUNE → Input shaper (the lower recommended value) | After belts or toolhead changes |
 | Purge volume | PrusaSlicer purging volumes, `filament_purge_multiplier` | Print a dark → light change; raise until no streaks | Per colour pair, if streaky |
 | Seam | `seam_*`, `scarf_seam_*` in `PRINT` | Print a cylinder; adjust `seam_gap_distance` if there's a gap or bump | Once |
+| Small Area Flow Compensation | your SAFC post-processor (`post_process`) | Its creator's tester (printables.com model 904788); if PA tuning leaves no small-area blobs, turn it off | After PA and EM |
+| Toolhead clearance | `extruder_clearance_radius/height` in `PRINTER` | Measure the toolhead's radius around the nozzle and the nozzle-to-gantry height (only one-at-a-time printing uses it) | Once |
+| PA smoothing | `pressure_advance_smooth_time` (`config/hardware/extruder.cfg`) | 0.02; retune PA after any change | Once |
 
 Your old presets' PA, EM, flow, fan and retraction values come across with
 `import-bundle` (setup step 2), so nothing has to be re-tuned before the first
