@@ -4,7 +4,7 @@ from macrosim import D
 COMMANDS = ['BEACON_HOME_Z_CONTACT', 'BEACON_MODEL_SELECT', 'BLOBIFIER_CLEAN', 'BLOBIFIER_PARK',
             'MMU_RECOVER', 'MMU_UNLOCK', 'MMU_HOME', 'MMU_LOAD', 'MMU_UNLOAD', 'MMU_EJECT',
             'MMU_PRELOAD', 'MMU_CHECK_GATE', 'MMU_SELECT', 'MMU_CHANGE_TOOL', 'MMU_TTG_MAP',
-            'SET_PAUSE_NEXT_LAYER', 'AXES_SHAPER_CALIBRATION', 'COMPARE_BELTS_RESPONSES']
+            'SET_PAUSE_NEXT_LAYER', 'MMU_ENDLESS_SPOOL', 'AXES_SHAPER_CALIBRATION', 'COMPARE_BELTS_RESPONSES']
 
 # A plausible printer state for rendering macros. Override per scenario.
 def make_state(**o):
@@ -27,7 +27,7 @@ def make_state(**o):
       'mmu': D(enabled=True, gate=0, tool=0, next_tool=-1, filament='Loaded', filament_pos=10, num_gates=4,
                gate_color_rgb=[(1,0,0)]*4, ttg_map=[0, 1, 2, 3], gate_status=[1, 1, 0, -1],
                gate_material=['PLA', 'PETG', 'ABS', ''], gate_filament_name=['Galaxy Black', 'Orange', '', ''],
-               print_state='printing', reason_for_pause='', operation='', action='Idle',
+               print_state='printing', reason_for_pause='', operation='', action='Idle', endless_spool_groups=[0, 1, 2, 3],
                slicer_tool_map=D(referenced_tools=[0, 1], initial_tool=0,
                                  tools=D({'0': D(material='PLA', name='Galaxy Black'), '1': D(material='PETG', name='Orange')}))),
       'gcode_macro _MMU_CUT_TIP_VARS': D(pin_loc_xy=(10,346), restore_position=False, pin_park_dist=20.0, safe_margin_xy=(60,50)),

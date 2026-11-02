@@ -55,6 +55,8 @@ SCENARIOS = [
  ('maintenance_add', dict(), ['_MAINTENANCE_ADD FILTER=1', '_MAINTENANCE_ADD FILTER=0']),
  ('calibrate', dict(quad_gantry_level=D(applied=False)), ['CALIBRATE', '_CAL_PID HEATER=extruder TARGET=240', '_CAL_SHAPER', '_CAL_MESH']),
  ('check_dialog_problem', dict(save_variables=D(variables=D())), ['CHECK_CONFIG STARTUP=1']),
+ ('endless_spool_groups', dict(mmu=MMU(gate_material=['PLA', 'PLA', 'PETG', 'PLA'], gate_filament_name=['Galaxy Black', 'galaxy black ', 'Orange', ''])), ['_ENDLESS_SPOOL_AUTOGROUP']),
+ ('endless_spool_unchanged', dict(), ['_ENDLESS_SPOOL_AUTOGROUP']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 
