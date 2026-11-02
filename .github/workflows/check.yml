@@ -1,0 +1,57 @@
+# Checks every pull request and push to main, and once a week checks our
+# macros against Happy Hare's latest main and development branches, so an
+# upcoming Happy Hare change that breaks something shows up before you update.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * 1'   # Mondays
+  workflow_dispatch:
+
+jobs:
+  macros:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install jinja2
+
+      - name: Dependency list is complete
+        run: python3 tools/check_deps.py
+
+      - name: Macro simulator runs every scenario without errors
+        run: python3 tools/macro_sim/scenarios.py . --save /tmp/after.json
+
+      - name: What this pull request changes in the expanded G-code
+        if: github.event_name == 'pull_request'
+        run: |
+          git worktree add /tmp/base "origin/${{ github.base_ref }}"
+          python3 tools/macro_sim/scenarios.py /tmp/base --save /tmp/before.json || true
+          {
+            echo '## Macro simulator: G-code differences from ${{ github.base_ref }}'
+            echo '```diff'
+            python3 tools/macro_sim/scenarios.py . --compare /tmp/before.json || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  happy-hare:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [main, development]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: git clone --depth 1 -b ${{ matrix.branch }} https://github.com/moggieuk/Happy-Hare /tmp/hh
+      - name: Our macros against Happy Hare ${{ matrix.branch }}
+        run: python3 tools/check_deps.py --happy-hare /tmp/hh
