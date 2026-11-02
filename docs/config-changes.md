@@ -692,3 +692,11 @@ Checks:
 - [ ] **P5** An EM test prints 10 squares. Their top surfaces visibly change from gappy (left) to rough (right)
 - [ ] **P6** `RETUNE` shows the four groups; each tune opens on its own
 - [ ] **P7** Filamentalist test on one gate: the filament goes 300 mm out, comes back, and the gate parks again
+
+## PR #33: PA test is explicitly two-phase
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/workflows/filament_tests.cfg` | After a Wide (or Fine 0.01–0.06) PA pick, the result dialog makes "Fine PA test around …" the primary button; after a fine pick, the EM test. `cal_last` records the range | Ellis's PA method is two-phase: find the area, then narrow down |
+
+- [ ] **Q1** After picking from a Wide PA test, the highlighted button is the fine test around your pick
