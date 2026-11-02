@@ -574,3 +574,29 @@ Checks:
 - [ ] **M7** CALIBRATE → Nozzle PID: homes, levels, moves to the bed centre at Z 5, tunes, and shows kp/ki/kd. Copy them into `config/hardware/extruder.cfg`
 - [ ] **M8** CALIBRATE → Input shaper runs Shake&Tune, and the graphs appear in ShakeTune_results
 - [ ] **M9** Run `CHECK_CONFIG` from the console: the dialog lists the result
+
+## PR #28: deploy script and GitHub checks (tools only)
+
+| File | Change | Reason |
+|---|---|---|
+| `tools/deploy.py` (new) | Run on the Pi from a separate clone. It pulls, refuses during a print, runs `check_deps`, shows the plan (added, changed, and removed files), backs up the whole config folder, and copies. Then it restarts Klipper (and Moonraker or KlipperScreen if their config changed) and prints `CHECK_CONFIG`. `--dry-run`, `--rollback <backup>` | One safe way to get `main` onto the printer |
+| same | Keeps what the printer owns: `printer.cfg`'s SAVE_CONFIG block, KlipperScreen.conf's generated section, `mmu/mmu_vars.cfg`, ShakeTune_results | Fresh calibration and Happy Hare state aren't overwritten |
+| same | Removes files in our own folders (macros, config, tools, docs, ukam) that the repository no longer has | Klipper includes those folders by wildcard, so a stale copy of a moved file would load twice |
+| same | Runs klipper-backup afterwards, unless it backs up to this repository | See below |
+| `.github/workflows/check.yml` (new) | On every PR: `check_deps`, all simulator scenarios, and the PR's G-code differences in the run summary. Weekly: `check_deps` against Happy Hare's main and development branches | A coming Happy Hare change shows up before you update |
+
+**klipper-backup.** I read its script. It skips symbolic links, replaces
+`.gitignore` with its own, and with the usual `backupPaths` writes everything
+under `printer_data/config/`. Pointed at this repository, it would delete the
+`mmu/macros` links and restructure the repository. `deploy.py` therefore only
+runs it when `~/klipper-backup/.env` points at a different repository.
+Earlier I said klipper-backup would "overwrite main". That's only true if it
+backs up to this repository, which this repository's layout suggests it
+doesn't.
+
+Checks:
+
+- [ ] **D1** Check where klipper-backup backs up to (`github_repository` in `~/klipper-backup/.env`). If it's VoronConfig, point it at a separate repository
+- [ ] **D2** On the Pi: clone the repository to `~/VoronConfig` and run `python3 ~/VoronConfig/tools/deploy.py --dry-run`. Check the plan, especially the files it removes
+- [ ] **D3** Run it for real. The SAVE_CONFIG block (Beacon model) is kept, and `CHECK_CONFIG` prints OK
+- [ ] **D4** GitHub → Actions: the `check` workflow passes on main
