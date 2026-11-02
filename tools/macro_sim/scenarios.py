@@ -17,6 +17,9 @@ SCENARIOS = [
  ('accessories', dict(), ['LIGHT_ON S=0.5', 'LIGHT_OFF', 'START_FILTER SPEED=0.7', 'STOP_FILTER']),
  ('check', dict(), ['CHECK_CONFIG']),
  ('nozzle', dict(), ['NOZZLE_SET DIAMETER=0.4', 'NOZZLE_SET']),
+ ('menu', dict(), ['MENU']),
+ ('menu_unhomed_park', dict(toolhead=D(position=D(x=0,y=0,z=0,e=0), axis_maximum=D(x=353,y=359,z=330), homed_axes='')), ['_MENU_PARK']),
+ ('check_hh_renamed', dict(gcode=D(commands=D()), mmu=D(enabled=True, gate=0)), ['CHECK_CONFIG']),
  ('qgl', dict(), ['COARSE_QGL', 'FAST_QGL', 'BEACON_HOME_Z_CONTACT CALIBRATE=1', 'Z_QUICK_SETUP']),
 ]
 

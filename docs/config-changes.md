@@ -394,3 +394,35 @@ Checks:
 
 - [ ] **H4** A chamber soak waits at 300,300 with the nozzle 2 mm above the bed, and stops after `print_default_chamber_max_heating_time` minutes if the chamber never reaches its target
 - [ ] **H5** Mainsail's macro buttons show the new descriptions. `CHECK_CONFIG` shows no "without a description" warning (if it lists Happy Hare macros, ignore them)
+
+## PR #20: macro simulator (tools only)
+
+`tools/macro_sim` expands our macros to the G-code they send, for a set of
+scenarios. Run `--save` before a change and `--compare` after it. Nothing on the
+machine changes.
+
+## PR #21: dialogs, printer menu, dependency check
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/ui/dialog.cfg` (new) | `_DIALOG`, `_DIALOG_TEXT`, `_DIALOG_BUTTON`, `_DIALOG_ROW`/`_ROW_END`, `_DIALOG_SHOW`, `_DIALOG_CLOSE` | One place that writes the `action:prompt` messages Fluidd, KlipperScreen and Mainsail all render |
+| `macros/ui/menu.cfg` (new) | `MENU`: nozzle, chamber and MMU summary; lights, filter, park (homes first if needed), check config | One entry point. Later workflows add their buttons here |
+| `KlipperScreen.conf` | a "Menu" button on the main and print screens that runs `MENU` | Plain menu entries only, so KlipperScreen updates can't break them |
+| `macros/system/dependencies.cfg` (new) | `_DEPENDENCIES`: every command, `printer.mmu` field, hook and Happy Hare variable we use, plus the Happy Hare version last checked | So updates can be checked instead of discovered |
+| `macros/state/startup_check.cfg` | `CHECK_CONFIG` checks that list: missing commands, fields or variables, hooks that no longer call our macros, a Happy Hare version newer than the one checked | Replaces the separate cancel/resume hook checks (same severities: cancel is an error, resume a warning). The status-LED hook is now also checked (warning) |
+| `tools/check_deps.py` (new) | Fails if a macro uses something the list leaves out or calls another project's internal macro. With `--happy-hare PATH` it checks the list against that source | Run after updating Happy Hare, before restarting |
+| `docs/updating.md` (new) | What to do after an update | |
+| `tools/macro_sim` | Parses indented continuation lines that start with `[` correctly. Scenarios for the menu, the park button and a renamed-dependency check | |
+
+Simulator: `check` is unchanged. New scenarios only.
+
+Against Happy Hare's current development branch (4.2), `check_deps.py` finds
+nothing missing.
+
+Checks:
+
+- [ ] **U1** KlipperScreen shows a "Menu" button on the main screen and during a print. It opens the printer menu
+- [ ] **U2** `MENU` from Fluidd opens the same dialog. The lights, filter and park buttons work, and Close closes it
+- [ ] **U3** The summary line shows the nozzle size, chamber temperature and loaded tool
+- [ ] **U4** After a Klipper restart, `CHECK_CONFIG` reports no dependency errors (`printer.gcode.commands` lists the Happy Hare, Blobifier and Beacon commands)
+- [ ] **U5** On the Pi: `python3 tools/check_deps.py --happy-hare ~/Happy-Hare` prints `OK`

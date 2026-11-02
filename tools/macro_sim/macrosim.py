@@ -24,7 +24,8 @@ def parse_files(root):
         for raw in open(p, errors='replace').read().split('\n'):
             if raw.startswith('#*#'): break
             hdr = raw.split('#')[0].strip()
-            m = re.match(r'^\[([^\]]+)\]', hdr)
+            # Indented lines continue the previous option, even if they start with '['
+            m = re.match(r'^\[([^\]]+)\]', hdr) if raw[:1] not in (' ', '\t') else None
             if m:
                 n = m.group(1).strip()
                 if n.startswith('include '):
