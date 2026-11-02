@@ -22,6 +22,9 @@ Patterns
   em  Ellis's extrusion multiplier method, as solid squares: each square at
       a different multiplier (M221). Pick the one whose top surface is smooth
       with no gaps and no ridges.
+  flow  OrcaSlicer's max volumetric speed method: a single-wall box in height
+      bands of rising flow. Measure where the wall turns rough; the last clean
+      band is the hotend's limit for this filament and nozzle.
 
 Each pattern is numbered on the first layer (1 = leftmost); the file's
 header and the result dialog list the values.
@@ -280,8 +283,52 @@ def em_pattern(a):
     return g, header, body
 
 
+def flow_pattern(a):
+    """OrcaSlicer's max volumetric speed method: a single-wall box printed in
+    height bands, each band at a higher flow. Where the wall turns rough or
+    gappy, the hotend has run out of melt; the last clean band is the limit."""
+    nozzle = a.nozzle
+    h = a.layer_height
+    w = round(nozzle * 1.25, 3)
+    g = Writer(w, h)
+    values = [round(a.start + i * a.step, 2) for i in range(a.count)]
+    band_layers = max(1, int(round(a.band_height / h)))
+    sx, sy = 70.0, 25.0
+    x0, y0 = BED_CENTRE[0] - sx / 2, BED_CENTRE[1] - sy / 2
+    area = h * (w - h * (1 - math.pi / 4))
+    body = []
+    layer = 0
+    # first layer: three loops, slow, for adhesion
+    g.layer(h)
+    for k in range(3):
+        o = k * w
+        g.path([(x0 - o, y0 - o), (x0 + sx + o, y0 - o), (x0 + sx + o, y0 + sy + o),
+                (x0 - o, y0 + sy + o), (x0 - o, y0 - o)], 20, 250)
+    body.extend(g.lines)
+    for b, flow in enumerate(values):
+        speed = min(flow / area, a.max_speed)
+        for _ in range(band_layers):
+            layer += 1
+            g.lines = []
+            g.layer(h * (layer + 1))
+            if layer == 1:
+                g.add('M106 S%d' % a.fan)
+            if _ == 0:
+                g.add('; band %d: %.1f mm3/s, %.0f mm/s' % (b + 1, flow, speed))
+            # one continuous loop per layer, starting where the last ended (no seam travel)
+            g.extrude(x0 + sx, y0, speed) if g.x is not None else None
+            for pt in [(x0 + sx, y0 + sy), (x0, y0 + sy), (x0, y0)]:
+                g.extrude(pt[0], pt[1], speed)
+            body.extend(g.lines)
+    header = ['; Max volumetric flow test (single wall, %g mm bands)' % a.band_height,
+              '; nozzle %.2f, line width %.3f, layer %.3f' % (nozzle, w, h)]
+    header += ['; band %d (%.1f-%.1f mm): %.1f mm3/s' % (i + 1, h + i * band_layers * h, h + (i + 1) * band_layers * h, v)
+               for i, v in enumerate(values)]
+    return g, header, body
+
+
 def build(a):
-    g, header, body = (pa_pattern if a.test == 'pa' else em_pattern)(a)
+    g, header, body = {'pa': pa_pattern, 'em': em_pattern, 'flow': flow_pattern}[a.test](a)
     lo, hi = g.min, g.max
     if lo[0] < BED_MIN or lo[1] < BED_MIN or hi[0] > BED_MAX or hi[1] > BED_MAX:
         sys.exit('calib_gcode: the test does not fit on the bed (%.0f,%.0f to %.0f,%.0f). '
@@ -295,7 +342,8 @@ def build(a):
         '; tool T%d, hotend %d, bed %d, chamber %d' % (a.tool, a.hotend, a.bed, a.chamber),
         'EXCLUDE_OBJECT_DEFINE NAME=%s_test CENTER=%s POLYGON=%s' % (a.test, centre, poly),
         'M140 S%d' % a.bed,
-        'START_PRINT BED=%d EXTRUDER=%d NOZZLE=%.2f CHAMBER=%d' % (a.bed, a.hotend, a.nozzle, a.chamber),
+        'START_PRINT BED=%d EXTRUDER=%d NOZZLE=%.2f CHAMBER=%d%s' % (
+            a.bed, a.hotend, a.nozzle, a.chamber, (' NOZZLE_TYPE=%s' % a.nozzle_type) if a.nozzle_type else ''),
         'MMU_CHANGE_TOOL STANDALONE=1 RESTORE=0 TOOL=%d' % a.tool,
         'POST_START_PRINT',
         'SET_VELOCITY_LIMIT ACCEL=%d' % a.accel,
@@ -320,7 +368,7 @@ def build(a):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('test', choices=['pa', 'em'])
+    ap.add_argument('test', choices=['pa', 'em', 'flow'])
     ap.add_argument('--out', required=True, help='directory for the file (e.g. ~/printer_data/gcodes/calibration)')
     ap.add_argument('--name', required=True, help='file name, without .gcode')
     ap.add_argument('--tool', type=int, required=True)
@@ -339,18 +387,23 @@ def main():
     ap.add_argument('--fan', type=int, default=255, help='part fan 0-255 from layer 2')
     ap.add_argument('--layer-height', type=float)
     ap.add_argument('--layers', type=int)
+    ap.add_argument('--band-height', type=float, default=2.0, help='flow test: mm per flow step')
+    ap.add_argument('--max-speed', type=float, default=400, help='flow test: never faster than this (max_velocity)')
+    ap.add_argument('--nozzle-type', default='', help='brass|hf|obxidian, passed to START_PRINT\'s nozzle check')
     ap.add_argument('--label-every', type=int, default=5)
     ap.add_argument('--keep', type=int, default=4, help='old test files of this kind to keep')
     a = ap.parse_args()
 
     if not 0.2 <= a.nozzle <= 1.2:
         sys.exit('calib_gcode: nozzle %.2f mm is not plausible' % a.nozzle)
-    if not 2 <= a.count <= 30:
+    if not 2 <= a.count <= 40:
         sys.exit('calib_gcode: count must be 2 to 30')
     if a.layer_height is None:
         a.layer_height = round(min(0.3, max(0.1, a.nozzle * 0.5)), 2)
     if a.layers is None:
         a.layers = 4 if a.test == 'pa' else max(6, int(round(2.4 / a.layer_height)))
+    if a.test == 'flow':
+        a.max_flow = 1e9                  # the point of the test is to exceed it
 
     text = build(a)
     out = os.path.expanduser(a.out)
