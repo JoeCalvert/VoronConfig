@@ -268,3 +268,12 @@ Checks:
 Checks:
 
 - [ ] **P4** The adaptive mesh still does two passes (console shows Beacon running two mesh passes) and takes about the same time
+
+## PR #14: line endings
+
+| File | Change | Reason |
+|---|---|---|
+| `.gitattributes` | new: store text files with LF | The repo had a mix of CRLF and LF files, so an edit could rewrite a whole file and hide the real change |
+| 37 files | CRLF → LF only | `git diff --ignore-cr-at-eol` shows no content change |
+
+No check needed on the printer: Klipper reads both.
