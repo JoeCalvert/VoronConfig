@@ -324,3 +324,19 @@ in two places (so the new include order can't change which value wins).
 Checks:
 
 - [ ] **Y1** Klipper restarts without config errors and `CHECK_CONFIG` passes
+
+## PR #17: settings in one place
+
+| Change | Reason |
+|---|---|
+| `_USER_VARIABLES` now lives only in `config/variables.cfg`, grouped and commented (it was split across 9 files) | One page with every setting the macros use |
+| 23 variables removed that nothing reads (e.g. `brush_xyz`, `purge_bucket_xyz`, `homing_first`, `zendstop_position`, `probe_dock_speed`, `print_default_chamber_temp`, `print_default_material`) | Dead settings mislead |
+| Always-true feature switches removed (`filter_enabled`, `light_enabled`, `status_leds_enabled`, `bed_mesh_enabled`, `chamber_temperature_sensor_enabled`, `qgl_enabled`, `sensorless_homing_enabled`, `purge_and_brush_enabled`, `verbose`), with the 14 branches that tested them | The hardware is fixed, so they only added code to read past |
+| Unused LED colour groups removed (`caselight`, `minidisplay`, `thermal`) | Only `logo` and `nozzle` are used |
+| Each macro reads the settings once (`{% set v = printer["gcode_macro _USER_VARIABLES"] %}`) instead of one line per value | 32 separate reads before |
+
+**No behaviour change:** 15 scenarios (two print starts, with `POST_START_PRINT` and `END_PRINT`, a cancel, `PARK`, homing homed and unhomed, bed and chamber soaks, every LED state, accessories, `CHECK_CONFIG`, `NOZZLE_SET` and the QGL helpers) were run through a macro simulator, fully expanded to the G-code they send. The output is identical before and after.
+
+Checks:
+
+- [ ] **V1** Klipper restarts without config errors (e.g. no "unknown variable" in a macro), and a print start looks the same as before
