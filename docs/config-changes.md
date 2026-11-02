@@ -133,3 +133,26 @@ Checks:
 Checks:
 
 - [ ] **A1** Nothing on the Pi still runs `autocommit.sh` (crontab, systemd timers, Moonraker shell commands)
+
+## PR #7: startup self-check
+
+| File | Change | Reason |
+|---|---|---|
+| `macros/base/startup_check.cfg` | new: `CHECK_CONFIG`, run automatically 5 s after Klipper starts | plan; pattern from Klippain and klipper-macros. Checks invariants, not copies of values, so each value keeps one owner |
+| `macros/base/start_print.cfg` | `START_PRINT` refuses to run if the check found errors or hasn't run | A Happy Hare installer run can silently reset measured values; the printer now refuses to print instead |
+
+Errors (block `START_PRINT`):
+- the cutter pin, `brush_start` or `purge_x` back at Happy Hare installer defaults
+- cutter `restore_position` True
+- `BLOBIFIER_PARK` in the pre-unload or post-form-tip hooks
+- any park point left of the cutter's clearance line (pin X + `pin_park_dist` + `safe_margin_x` = 90)
+- cancel hook not calling `_CANCEL_PRINT_EXTENSION`
+- no Beacon model saved
+- Beacon `home_method` not proximity
+
+Warnings: resume hook without `BLOBIFIER_CLEAN`, `z_thermal_adjust` enabled, fitted nozzle not recorded.
+
+Checks:
+
+- [ ] **K1** After a Klipper restart the console shows no `CHECK_CONFIG error` lines. Run `CHECK_CONFIG` by hand: it reports OK (the nozzle warning goes away after `NOZZLE_SET`)
+- [ ] **K2** Temporarily set `park_pause` to `50, 50, 5, 0, 2`, restart: the check reports it and `START_PRINT` refuses. Put it back
