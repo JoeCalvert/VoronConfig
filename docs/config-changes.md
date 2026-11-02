@@ -4,6 +4,8 @@ Every value changed by the modernisation pull requests is listed here, with
 where it came from and what to check on the printer. Each pull request adds its
 own rows, so this file is reviewed alongside the change itself.
 
+**To work through the checks, use `docs/commissioning.md`**: all of them in order, de-duplicated.
+
 Sources: **v3** = the measured value in `mmu.V3/`; **default** = the Happy Hare
 v4 installer default; **plan** = a decision recorded in the modernisation plan.
 
