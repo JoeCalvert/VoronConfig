@@ -26,6 +26,7 @@ One-off housekeeping on the Pi:
 ## 2. Hardware before tuning
 
 - [ ] Fix the cowl screw that pulled through (washer or reprinted part)
+- [ ] Read the label on the A/B motors: if it says `17HS19-2004S-AB` (Fysetc's 2.4 kit motor), change `motor:` for `stepper_x`/`stepper_y` in `config/software/motors_autotune.cfg` from `fysetc-17HS19-2004S-C` (their Trident motor) to `fysetc-17HS19-2004S-AB`
 - [ ] Measure the toolhead clearance (radius around the nozzle; nozzle tip to the gantry) and set `extruder_clearance_*` in `slicer/profiles.py`; only needed before using the Stencil intent [#35/V4]
 
 ## 3. Homing, levelling, positions
@@ -43,8 +44,9 @@ Motion and heaters:
 - [ ] Mechanical check
 - [ ] Belts with the tension meter, then Shake&Tune belt comparison ≥ 90 % similar
 - [ ] Mesh and QGL edges: full mesh has no drop/jump at any edge; Beacon fully on the plate at all four QGL points [#29/T1, T2]
+- [ ] (Optional, with the motion retune) A/B `run_current` 0.9 → about 1.1 A, then check motor and driver temperatures after a long hot-chamber print. This is my rule of thumb, not a sourced figure; it adds torque at speed
 - [ ] Input shaper with the bed hot: axes map, graphs (one clean peak per axis), measure and apply → Save. Set `max_accel` and the damping ratios from the results [#9/F4, #27/M8, #30/E2]
-- [ ] PID nozzle and bed → Save; Klipper restarts with the values in SAVE_CONFIG. Deploy again later: they're kept [#31/R3, #9/F4, #10/L1]
+- [ ] Update Klipper first if it's older than 18 Oct 2026: before that, `PID_CALIBRATE` suggested values about twice too high (Klipper Config_Changes). Then: PID nozzle and bed → Save; Klipper restarts with the values in SAVE_CONFIG. Deploy again later: they're kept [#31/R3, #9/F4, #10/L1]
 
 ERCF:
 - [ ] Selector and servo: re-seat the servo arm at DOWN as the v4 ERCF guide describes, set up/down/move angles and save [#3/S1]; calibrate the selector (motors off, gate 0, Calibrate); calibrate the bypass position
