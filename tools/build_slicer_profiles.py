@@ -268,6 +268,7 @@ def prints(P, base, limits):
                 continue
             cfg = dict(base)
             cfg.update(P.PRINT)
+            cfg.update(getattr(P, 'PRINT_BY_DIAMETER', {}).get(d, {}))
             for k, ratio in P.ACCEL.items():
                 cfg[k] = ratio
             cfg.update(intent['set'])

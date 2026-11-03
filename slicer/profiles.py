@@ -135,12 +135,13 @@ PRINT = dict(
     first_layer_speed=40, first_layer_infill_speed=80,
     travel_speed=350, travel_speed_z=15, max_print_speed=350,
     # Overhang speeds: index 0 is 0% overlap (bridging) and must be the
-    # slowest; 3 is 75% overlap (barely overhanging). Percent of the outer wall.
-    # Slow down only where it matters, and not far: big speed swings are what
-    # show (the Orca port's author on the Voron Discord: no slowdown down to
-    # 50% overlap, ~70 at 25%, bridge speed when bridging).
+    # slowest; 3 is 75% overlap (barely overhanging). The values are the ones
+    # in PrusaSlicer's own Voron profile (Voron.ini, *common*). The faster
+    # 50/70/100%/100% set used before came from a Discord claim that could not
+    # be found again (docs/discord-evidence.md). Tune with the overhang test
+    # in docs/commissioning.md.
     enable_dynamic_overhang_speeds=1,
-    overhang_speed_0=50, overhang_speed_1=70, overhang_speed_2='100%', overhang_speed_3='100%',
+    overhang_speed_0=15, overhang_speed_1=25, overhang_speed_2=30, overhang_speed_3='80%',
     perimeter_generator='arachne', perimeters=3, extra_perimeters=0, extra_perimeters_on_overhangs=0,
     ensure_vertical_shell_thickness='enabled', thin_walls=0, gap_fill_enabled=1,
     top_solid_layers=5, top_solid_min_thickness=0.7, bottom_solid_layers=4, bottom_solid_min_thickness=0.5,
@@ -148,7 +149,7 @@ PRINT = dict(
     # Short infill anchors, as PrusaSlicer's Voron (2/12) and Prusa (2-2.5) profiles: long ones cost time.
     fill_pattern='cubic', fill_density='15%', infill_anchor=2.5, infill_anchor_max=12, infill_overlap='25%',
     solid_infill_below_area=0,
-    bridge_flow_ratio=1, thick_bridges=0, dont_support_bridges=0,
+    bridge_flow_ratio=1, thick_bridges=0, dont_support_bridges=0,   # thick bridges: as Voron.ini (on for 0.8 below)
     # Seams: aligned at the sharpest corner, scarfed where the wall is smooth
     # (cylinders) so the seam all but disappears. tune: seam test.
     seam_position='aligned', staggered_inner_seams=1, seam_gap_distance='15%',
@@ -170,6 +171,9 @@ PRINT = dict(
     # PrusaSlicer; set it to '' to turn it off.
     post_process='/home/joe/Voron/SAFC/SmallAreaFlowComp',
 )
+# Per nozzle diameter, on top of PRINT. PrusaSlicer's Voron profile turns
+# thick bridges on for 0.8 mm only (thin bridges from a big nozzle sag).
+PRINT_BY_DIAMETER = {0.80: dict(thick_bridges=1)}
 
 # ---------------------------------------------------------------------------
 # Intents. Each is: which nozzle sizes it applies to, its layer height per
@@ -224,24 +228,27 @@ INTENTS = [
 # max_flow, pa_<nozzle>, fan_min, fan_max, chamber_temp, retract_length).
 # chamber: from preheat_materials in config/variables.cfg when not set here.
 # pa: per nozzle key, used until a filament has its own (CAL_FILAMENT TEST=pa).
+# slowdown_below_layer_time: PLA 12, PETG 15, ABS/ASA 5 are PrusaSlicer's Voron
+#   profile values (Voron.ini); PC and TPU have none there. Raise per material
+#   if small parts sag or curl (commissioning: the small-part layer-time check).
 # ---------------------------------------------------------------------------
 MATERIALS = {
     'PLA': dict(filament_type='PLA', temperature=215, bed_temperature=60, max_flow=21, em=0.98,
-                fan=(100, 100), bridge_fan=100, disable_fan_first_layers=1, slowdown_below_layer_time=8,
+                fan=(100, 100), bridge_fan=100, disable_fan_first_layers=1, slowdown_below_layer_time=12,
                 overhang_fan=(100, 100, 100, 100), min_print_speed=15, pa={'0.25': 0.06, '0.40': 0.035, '0.40_obx': 0.035, '0.60': 0.03,
                                         '0.60_hf': 0.027, '0.80': 0.025}),
     'PETG': dict(filament_type='PETG', temperature=240, bed_temperature=80, max_flow=17, em=0.935,
-                 fan=(0, 0), bridge_fan=70, disable_fan_first_layers=2, slowdown_below_layer_time=10,
+                 fan=(0, 0), bridge_fan=70, disable_fan_first_layers=2, slowdown_below_layer_time=15,
                  overhang_fan=(60, 40, 20, 0),
                  min_print_speed=15, retract_length=None,
                  pa={'0.25': 0.07, '0.40': 0.04, '0.40_obx': 0.04, '0.60': 0.035, '0.60_hf': 0.032, '0.80': 0.03}),
     'ABS': dict(filament_type='ABS', temperature=245, bed_temperature=110, max_flow=22, em=0.965,
-                fan=(70, 70), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=8,
+                fan=(70, 70), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=5,
                 overhang_fan=(100, 90, 80, 70),
                 min_print_speed=15,
                 pa={'0.25': 0.06, '0.40': 0.033, '0.40_obx': 0.033, '0.60': 0.03, '0.60_hf': 0.028, '0.80': 0.025}),
     'ASA': dict(filament_type='ASA', temperature=250, bed_temperature=110, max_flow=20, em=0.94,
-                fan=(80, 80), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=8,
+                fan=(80, 80), bridge_fan=80, disable_fan_first_layers=2, slowdown_below_layer_time=5,
                 overhang_fan=(100, 95, 90, 80),
                 min_print_speed=15,
                 pa={'0.25': 0.06, '0.40': 0.03, '0.40_obx': 0.03, '0.60': 0.028, '0.60_hf': 0.028, '0.80': 0.025}),

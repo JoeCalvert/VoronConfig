@@ -742,7 +742,7 @@ The full review, setting by setting with sources: `docs/slicer-settings.md`. Key
 | same | ABS/ASA/PC minimum layer time 8 s (5 in PR #34); cooling transition 10 mm; fan ramps to full by layer 3; overhang fan per material (dynamic fan on) | Discord: 3 s too low for ABS, 8–15 typical; PS-Voron cooling logic |
 | same, `tools/build_slicer_profiles.py`, `tools/spoolman_tuning.py` | Abrasive filaments (Spoolman `abrasive`, or CF/GF/carbon/glass in the name) are flagged and only offered for the hardened ObXidian printer | PrusaSlicer 2.9's abrasive flag; protects brass nozzles |
 | same | Toolhead clearance 75 / 33 mm (was 20 / 20); host type moonraker; time-estimate corner speed = square_corner_velocity | One-at-a-time printing (Stencil) needs real clearance |
-| `config/hardware/extruder.cfg` | `pressure_advance_smooth_time: 0.02` (was 0.04) | Discord: 0.015–0.02; the default lags speed changes |
+| `config/hardware/extruder.cfg` | `pressure_advance_smooth_time: 0.02` (was 0.04) | Discord: about the floor for a strong extruder (re-checked in PR #41) |
 | `config/variables.cfg` | PA test walls 150 mm/s, 3500 mm/s² (was 100 / 4000); the build warns if they differ from the presets | PA must be tuned at the walls' speed and acceleration |
 
 Checks:
@@ -777,3 +777,25 @@ Happy Hare v4 has no `[mmu]` section: its settings are in `[mmu_machine]`, `[mmu
 | `tools/macro_sim/` | `printer.configfile` is built from the real config files (scenarios can still override values) | Its made-up state had an `[mmu]` section, so it passed |
 
 - [ ] **K2** After deploying, `CHECK_CONFIG` runs without errors and shows the Happy Hare version
+
+## PR #41: Discord-backed choices re-checked
+
+Every setting whose reason was "Discord" was checked again, reading each
+message in context with its replies and threads, noting who said it and when,
+and preferring official sources where they exist. Verdicts and links are in
+`docs/discord-evidence.md`.
+
+| File | Change | Reason |
+|---|---|---|
+| `slicer/profiles.py` | Overhang speeds 15 / 25 / 30 mm/s / 80 % (was 50 / 70 / 100 % / 100 %) | The source for the old values couldn't be found again; these are PrusaSlicer's Voron profile |
+| same | Minimum layer time PLA 12 s, PETG 15, ABS/ASA 5 (was 8 / 10 / 8) | Voron profile values; the "Discord: 8–15 for ABS" wasn't verifiable |
+| same, `tools/build_slicer_profiles.py` | Thick bridges on for 0.8 mm nozzles (`PRINT_BY_DIAMETER`) | As the Voron profile; still off otherwise |
+| `config/hardware/extruder.cfg` | Comment only: smoothing 0.02 is about the floor, not "0.015–0.02" | The 0.015 figure was a PA value misread as a smoothing time |
+| `macros/workflows/retune.cfg`, `docs/retune.md` | Filamentalist tension: the build guide's method | The old advice was for an EMU build |
+| `docs/slicer-settings.md` | Reasons rewritten to match the evidence | |
+
+Checks:
+
+- [ ] **D1** HF max-flow test: no extruder clicking before the wall turns rough (else smoothing 0.03, redo PA)
+- [ ] **D2** Overhang test and small-part layer-time check (commissioning section 6)
+- [ ] **D3** Filamentalist tension set the build guide's way

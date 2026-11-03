@@ -49,7 +49,7 @@ Motion and heaters:
 ERCF:
 - [ ] Selector and servo: re-seat the servo arm at DOWN as the v4 ERCF guide describes, set up/down/move angles and save [#3/S1]; calibrate the selector (motors off, gate 0, Calibrate); calibrate the bypass position
 - [ ] Gear, encoder, bowden on gate 0 [#3/K1]
-- [ ] Filamentalist tension: screw just touching the top washer, unloaded; out-and-back test on each gate [#32/P7]
+- [ ] Filamentalist tension, the build guide's way: tight spool, back off until loose filament collects on an unload, then half a turn tighter; out-and-back test on each gate [#41/D3, #32/P7]
 - [ ] Per-gate calibration; gates more than 2 % off gate 0 investigated [#3/K1]
 - [ ] Toolhead distances: Clean, Dirty, Cut [#3/T1]
 - [ ] A real cut leaves a clean tip and reloads without jamming [#2/C2]
@@ -76,9 +76,12 @@ ERCF:
 - [ ] Cancel one test partway: PA and max_accel go back to before [#32/P4]
 - [ ] EM test: squares go from gappy to rough; pick, then fine [#32/P5]
 - [ ] Max flow test on the HF nozzle: wall turns rough partway up; pick the band; saved to Spoolman [#34/S8]
+- [ ] During the HF max-flow test, listen at the extruder: clicking or skipping before the wall turns rough means smoothing 0.02 is too short for it; set `pressure_advance_smooth_time: 0.03`, redo PA [#41/D1]
 - [ ] Rebuild the presets; the filament preset has the new values
 - [ ] Repeat PA (and EM) for your other common filaments and nozzles over time
 - [ ] (Later) Small Area Flow Compensation tester; turn SAFC off if PA leaves no small-area blobs
+- [ ] Overhang test (any overhang test model with 30–70° steps), Standard preset: if the 30–50 % overlap steps look fine, try raising `overhang_speed_1`/`_2` in `slicer/profiles.py` towards the walls' speed; slower if they droop [#41/D2]
+- [ ] Small-part layer time: a 15 mm cube in ABS and in PLA. If the top deforms or curls, raise that material's `slowdown_below_layer_time` (now Voron's 5 s ABS, 12 s PLA) [#41/D2]
 - [ ] Look at eono PETG's 3 mm retraction (too long for direct drive) and CarbonX ASA's EM 0.865
 
 ## 7. First real prints: watch these happen
