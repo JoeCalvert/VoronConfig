@@ -6,7 +6,8 @@ Values live in `slicer/profiles.py`; the full key-by-key list is
 ones is in `docs/slicer.md` → "What gets tuned, and how".
 
 Sources: **Discord** = the Voron Discord (helpers' and experienced users'
-advice, 2025–2026); **PS-Voron** / **PS-Prusa** = the profiles PrusaSlicer 2.9.6
+advice, 2025–2026; each claim was re-checked in context on 3 Nov 2026, with
+links and verdicts in `docs/discord-evidence.md`); **PS-Voron** / **PS-Prusa** = the profiles PrusaSlicer 2.9.6
 ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 **yours** = kept from your old presets.
 
@@ -14,10 +15,10 @@ ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 
 | | Value | Why |
 |---|---|---|
-| Flow limit, nozzle | 12 mm³/s brass/ObXidian, 24 HF 0.60, 6 for 0.25 | What a Revo melts (Discord: 10–12 for standard Revo; E3D HF starter settings ≈ 23). PrusaSlicer slows every move to fit. **This is what sets print time on this printer**, not the speeds below |
+| Flow limit, nozzle | 12 mm³/s brass/ObXidian, 24 HF 0.60, 6 for 0.25 | What a Revo melts (starting caps, set low on purpose: a retailer quotes E3D's 13 for a standard 0.4 in PLA, and one user measured 17 standard / 31 HF at 0.6. The flow test sets each filament's real limit). PrusaSlicer slows every move to fit. **This is what sets print time on this printer**, not the speeds below |
 | Flow limit, filament | per filament (Spoolman `max_flow`; defaults PLA 21, PETG 17, ABS 22, ASA 20) | The lower of nozzle and filament wins. Measure with the flow test |
 | Feature speeds | walls 150, infill 300, solid 250, top 150, gap fill 150 mm/s | Deliberately above the flow limit for 0.40/0.60 nozzles, so the limit does the work and nothing is slower than it has to be |
-| Inner = outer wall speed and acceleration | 150 mm/s, 0.5 × max_accel (Quality 100, 0.35×) | Discord: PA is tuned at one speed/acceleration, and walls that differ show it. At 0.40/0.20 the flow limit makes them ≈145 mm/s anyway |
+| Inner = outer wall speed and acceleration | 150 mm/s, 0.5 × max_accel (Quality 100, 0.35×) | Discord (verified): with different speeds or accelerations in one print, *somewhere the PA will be wrong* unless the slicer has adaptive PA, which PrusaSlicer doesn't. At 0.40/0.20 the flow limit makes them ≈145 mm/s anyway |
 | Accelerations | infill, solid infill, travel 1.0 × max_accel; default 0.7; top 0.3; bridges 0.45; first layer 500 | Interior work at full speed. Top surfaces lower (PS-Voron 1200; PS-Prusa 800–2000) to avoid ringing marks. Walls deliberately below the shaper maximum: Discord (the Orca port author) — high wall acceleration plus PA smoothing runs into the extruder's limits |
 | Small perimeters | 50 % of wall speed | Small loops cool and stay round |
 | Travel | 350 mm/s, Z 15, short-hop acceleration 250 | Under max_velocity 400. The 250 only applies to hops shorter than the retraction trigger (PS-Voron and PS-Prusa both use it) |
@@ -27,7 +28,7 @@ ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 
 | | Value | Why |
 |---|---|---|
-| Wall generator | Arachne; **Classic for Quality and PIF** | Arachne handles thin features. Discord reports outer-wall artefacts from Arachne's varying widths that go away with Classic; PS-Voron's printed-parts profile uses Classic |
+| Wall generator | Arachne; **Classic for Quality and PIF** | Arachne handles thin features. PS-Voron does exactly this split: Arachne in its common profile, Classic for its printed-parts profile. On Discord, Classic is what many there recommend (one helper notes Arachne is *recommended against by many here*, while still preferring it for thin parts) |
 | Walls | 3 (PIF 4, Draft and specials 2) | PS-Voron 0.4: 3. PIF: Voron's requirement |
 | Wall order | inner first | Better overhangs; outer-first only helps dimensional accuracy |
 | Extra perimeters | off (also on overhangs) | PS-Voron |
@@ -38,9 +39,9 @@ ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 
 | | Value | Why |
 |---|---|---|
-| Dynamic overhang speed | bridging 50, 25 % overlap 70, 50–75 % overlap full speed | Discord (the Orca port author): slow only near-bridging overhangs and not far; big speed swings cause the artefacts. **The old presets had these reversed** (gentle overhangs at 10 mm/s) |
+| Dynamic overhang speed | bridging 15, 25 % overlap 25, 50 % overlap 30 mm/s, 75 % overlap 80 % of the wall | PS-Voron's values. The direction is confirmed on Discord (faster as overlap grows; **the old presets had it reversed**). The faster set used before (50/70/full/full) came from a Discord claim I couldn't find again, so it's withdrawn. Tune with the overhang test (commissioning) |
 | Overhang fan | per material, up to 100 % at 0 % overlap (ABS 100/90/80/70) | More cooling where the plastic hangs. PETG gets some on overhangs although its base fan is 0 |
-| Bridges | speed 50, flow 1.0, thick bridges off, over-bridge 60 % | Discord: thick bridges hurt more than they help, especially PETG. PS-Voron flow 1.0 |
+| Bridges | speed 50, flow 1.0, thick bridges off (on for 0.8 mm), over-bridge 60 % | PS-Voron (thick bridges off except 0.8 mm; flow 1.0; bridge speed 50). Discord is split on thick bridges, so the official profile decides |
 | Supports | off unless enabled; organic, build plate only, 0.2 mm contact | Enable per print; organic supports remove cleanly |
 
 ## Infill and shells
@@ -82,7 +83,7 @@ ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 |---|---|---|
 | Fan | constant per material: PLA 100, PETG 0, ABS 70, ASA 80, TPU 60–100 | Yours. Discord has no consensus for ABS ("depends on your cooling"); with the chamber now heated it's worth testing lower |
 | Fan start | after 1–3 layers, ramping to full by layer 3 | |
-| Minimum layer time | PLA 8 s, PETG 10, ABS/ASA/PC 8 | Discord: 3 s is too low for ABS, 8–15 typical (your old 15 was the slow end; my first draft's 5 too low) |
+| Minimum layer time | PLA 12 s, PETG 15, ABS/ASA 5, PC/TPU 8 | PS-Voron's values (its ABS profile is the one Voron parts are printed with). The earlier "Discord: 8–15 for ABS" could not be verified. Raise a material's value if small parts sag or curl (commissioning check) |
 | Slowdown | consistent surface, 10 mm transition | Slows infill first so walls keep their look (PS-Voron) |
 | Chamber | ABS/ASA 50 °C (preheat_materials) | Was 0: no soak ever ran |
 
@@ -101,7 +102,7 @@ ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 
 | | Value | Why |
 |---|---|---|
-| `pressure_advance_smooth_time` | 0.02 (was 0.04) | Discord (Orca port author): 0.015–0.02; the default lags speed changes and blurs corners. Retune PA after changing it |
+| `pressure_advance_smooth_time` | 0.02 (was 0.04) | Klipper default 0.04; shorter reacts faster but needs more extruder torque. Discord (verified): *good extruders with adequate torque can do down to 0.02*, and nobody was known to run below it. The earlier "0.015–0.02" was a misreading: those were PA values in the same thread. Back to 0.03–0.04 if the extruder clicks at high flow. Retune PA after changing it |
 | `square_corner_velocity` | 5 | Already set (PR #30) |
 | PA test print | walls at 150 mm/s, 3500 mm/s² | The same as the presets' walls; the build warns if they drift apart |
 
@@ -110,9 +111,9 @@ ships for Voron and for Prusa's own printers; **E3D** = E3D's Revo figures;
 Rafts, brims, draft shield, fuzzy skin, ironing, spiral vase, wipe-tower
 details, tree-support internals, wall transition details, slice closing
 radius, XY compensation (0; use the elephant-foot and shrinkage tuning
-instead), pressure equalizer (experimental in PrusaSlicer; Discord: it smooths
-some artefacts but makes speeds erratic. Worth trying only if you see
-artefacts at speed changes), Small Area Flow Compensation (your
-post-processor, kept; Discord: a patch for over-extrusion on small areas that
-good PA mostly makes unnecessary. Check it with its creator's tester print,
+instead), pressure equalizer (experimental in PrusaSlicer; off. The Discord view
+quoted before couldn't be found again; try it only if you see artefacts at
+speed changes), Small Area Flow Compensation (your
+post-processor, kept. Discord's comparison is with OrcaSlicer's adaptive PA,
+which does the job better but which PrusaSlicer doesn't have. Check it with its creator's tester print,
 printables.com model 904788).

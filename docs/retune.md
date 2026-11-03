@@ -140,10 +140,15 @@ selector travels. To adjust one: `MMU_SERVO ANGLE=…` until it's right, then
 ### Filamentalist tension
 
 The Filamentalist's tension should be as light as will still rewind. The
-advice from its designers on the Armchair Heavy Industries Discord: with no
-filament loaded, turn the tension screw until it just touches the top washer.
-(That advice was given for the EMU build, which uses the same Filamentalist
-with the EMU's spring and two washers; check yours uses the same parts.)
+method from its official build guide (Filamentalist Rewinder V3, "Spring
+tension"): start on the light side, then with a tightly wound spool reduce the
+tension screw until loose filament starts to collect on the unload, and from
+there tighten about half a turn. If loose loops still form, tighten; if they
+form with any tension, check the one-way bearing direction (the guide's
+troubleshooting section).
+
+(The earlier advice here, "screw just touching the top washer", came from an
+EMU build on the Armchair Discord and isn't the ERCF guide's method.)
 
 Then test each gate (filament unloaded, all gates parked): the gate's button
 pushes its filament 300 mm into the bowden, pulls it back, and parks it again
