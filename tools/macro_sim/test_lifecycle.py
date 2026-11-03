@@ -226,6 +226,103 @@ class Lifecycle(unittest.TestCase):
             self.assertTrue(rt.state['virtual_sdcard']['is_active'])
 
 
+class PrintStartStages(unittest.TestCase):
+    def test_cold_bed_soak_decision_is_captured_before_homing(self):
+        for initial, dwell_count in ((25, 10), (100, 0)):
+            with self.subTest(initial=initial):
+                rt = printer()
+                rt.state['heater_bed']['temperature'] = initial
+                rt.macros['_STARTUP_CHECK_STATE']['vars']['ok'] = True
+                rt.macros['_USER_VARIABLES']['vars']['force_homing_in_start_print'] = True
+                original_run = rt.run
+                def run(line, depth=0):
+                    if line.strip().startswith('G28 '):
+                        rt.state['heater_bed']['temperature'] = 100
+                    return original_run(line, depth)
+                rt.run = run
+                rt.run('START_PRINT BED=100 EXTRUDER=240 CHAMBER=0 NOZZLE=0.6')
+                self.assertEqual(rt.primitives().count('G4 P60000'), dwell_count)
+
+    def test_hotend_alias_and_slicer_offset_reach_final_preparation(self):
+        rt = printer()
+        rt.macros['_STARTUP_CHECK_STATE']['vars']['ok'] = True
+        rt.run('START_PRINT BED=100 HOTEND=230 CHAMBER=0 NOZZLE=0.6 Z_ADJUST=-0.025')
+        self.assertIn('SET_HEATER_TEMPERATURE HEATER=extruder TARGET=230.0', rt.primitives())
+        self.assertIn('SET_GCODE_OFFSET Z_ADJUST=-0.025 MOVE=1', rt.primitives())
+        self.assertEqual(rt.macros['_JOB']['vars']['phase'], 'prepared')
+
+    def test_out_of_order_stages_do_not_change_the_machine(self):
+        commands = [
+            '_START_PRINT_BEGIN CHAMBER=0',
+            '_START_PRINT_HOME',
+            '_START_PRINT_HEAT BED=100 EXTRUDER=240 CHAMBER=0 Z_ADJUST=0 SOAKTIME=0',
+            '_START_PRINT_PROBE',
+            '_START_PRINT_FINAL_HEAT EXTRUDER=240',
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                rt = printer()
+                with self.assertRaises(RuntimeError):
+                    rt.run(command)
+                self.assertEqual(rt.primitives(), [])
+
+    def test_validation_failure_precedes_machine_changes(self):
+        cases = [
+            (True, 'NOZZLE=0.4'),
+            (True, 'MATERIALS=ABS'),
+            (False, 'NOZZLE=0.6'),
+        ]
+        for ok, arguments in cases:
+            with self.subTest(ok=ok, arguments=arguments):
+                rt = printer()
+                rt.macros['_STARTUP_CHECK_STATE']['vars']['ok'] = ok
+                with self.assertRaises(RuntimeError):
+                    rt.run('START_PRINT BED=100 EXTRUDER=240 CHAMBER=0 ' + arguments)
+                self.assertEqual(rt.primitives(), [])
+                self.assertEqual(rt.macros['_JOB']['vars']['start_stage'], 'idle')
+
+    def test_chamber_wait_cannot_be_bypassed_by_the_continuation(self):
+        rt = printer()
+        rt.macros['_STARTUP_CHECK_STATE']['vars']['ok'] = True
+        rt.run('START_PRINT BED=100 EXTRUDER=240 CHAMBER=50 NOZZLE=0.6')
+        before = rt.primitives()
+        with self.assertRaises(RuntimeError):
+            rt.run('_START_PRINT_AFTER_CHAMBER EXTRUDER=240')
+        self.assertEqual(rt.primitives(), before)
+        self.assertFalse(rt.state['virtual_sdcard']['is_active'])
+
+    def test_failed_probing_cannot_skip_to_final_heating(self):
+        rt = printer()
+        rt.macros['_STARTUP_CHECK_STATE']['vars']['ok'] = True
+        rt.fail_on.add('QUAD_GANTRY_LEVEL')
+        with self.assertRaises(RuntimeError):
+            rt.run('START_PRINT BED=100 EXTRUDER=240 CHAMBER=0 NOZZLE=0.6')
+        before = rt.primitives()
+        with self.assertRaises(RuntimeError):
+            rt.run('_START_PRINT_FINAL_HEAT EXTRUDER=240')
+        self.assertEqual(rt.primitives(), before)
+        self.assertNotIn('SET_HEATER_TEMPERATURE HEATER=extruder TARGET=240.0', before)
+
+    def test_cancelled_start_rejects_late_continuation(self):
+        rt = printer()
+        rt.macros['_STARTUP_CHECK_STATE']['vars']['ok'] = True
+        rt.run('START_PRINT BED=100 EXTRUDER=240 CHAMBER=50 NOZZLE=0.6')
+        cancel(rt)
+        before = rt.primitives()
+        with self.assertRaises(RuntimeError):
+            rt.run('_START_PRINT_AFTER_CHAMBER EXTRUDER=240')
+        self.assertEqual(rt.primitives(), before)
+
+    def test_completed_or_cancelled_job_cannot_repeat_final_heating(self):
+        for job_phase in ('prepared', 'cancelled'):
+            with self.subTest(phase=job_phase):
+                rt = printer()
+                rt.macros['_JOB']['vars'].update(phase=job_phase, start_stage='probed')
+                with self.assertRaises(RuntimeError):
+                    rt.run('_START_PRINT_FINAL_HEAT EXTRUDER=240')
+                self.assertEqual(rt.primitives(), [])
+
+
 class NativeKlipper(unittest.TestCase):
     def test_actual_gcode_transform_stays_inside_limits(self):
         from extras.gcode_move import GCodeMove

@@ -32,6 +32,33 @@ console to print both):
 | MMU error in a print | Happy Hare pauses and parks (`park_pause`), then `_MMU_RECOVERY` shows the recovery dialog. Its buttons run single Happy Hare commands. Resume only once the needed tool is loaded | Pause park, or wherever a recovery step leaves it. Resume returns to the print | `macros/mmu_hooks/recovery.cfg` |
 | Complete | Slicer end G-code: `MMU_END` (lift only, then cut and unload), then `END_PRINT` → `_END_JOB REASON=complete`: heaters off, chamber callbacks cancelled, mesh cleared, state `complete`, then `PARK` and motors off (end-of-print light; filter runs 10 min after a heated-chamber print) | End-of-job point | `macros/print/end_print.cfg` |
 
+## Print-start stages
+
+`START_PRINT` coordinates a fixed sequence of small helpers in
+`macros/print/start_print.cfg`. The slicer still calls the same public commands.
+`_JOB.phase` records the whole job; `_JOB.start_stage` records preparation
+progress, and `_JOB` prints both in the console.
+
+| Helper | Responsibility | Progress recorded after success |
+|---|---|---|
+| `_START_PRINT_VALIDATE` | Startup checks, slicer compatibility and fitted-nozzle checks, before machine changes | `validated` |
+| `_START_PRINT_BEGIN` | Cancel stale callbacks, initialize the job and reset parsing/mesh/offset state | `initialized` |
+| `_START_PRINT_HOME` | Conditional or forced proximity homing | `homed` |
+| `_START_PRINT_HEAT` | Bed/nozzle preparation, then optional chamber warm-up and soak | `waiting_chamber` |
+| `_START_PRINT_PROBE` | Wait for safe nozzle temperature, level, contact-home Z and build the adaptive mesh | `probed` |
+| `_START_PRINT_FINAL_HEAT` | Heat over the tray, apply nozzle/slicer offsets and mark the job prepared | `prepared` |
+
+Each stage requires the previous stage to have finished. Stages after job
+initialization also require `_JOB.phase` to remain `preparing`, so a late
+continuation after cancellation is refused. Probing cannot begin while the
+chamber timer is still warming or soaking.
+
+`_START_PRINT_AFTER_CHAMBER` remains the timer's continuation entry point and
+calls the probing and final-heating helpers in order. With `CHAMBER=0`, thermal
+preparation calls that same continuation directly. The cold-bed soak decision
+is captured at `START_PRINT` entry, preserving its existing timing relative to
+homing. Heater, motion, probing, mesh and offset command order is unchanged.
+
 ## Fixed positions
 
 Each has one owner; macros read them rather than retyping them.
