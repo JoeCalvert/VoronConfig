@@ -86,7 +86,7 @@ ERCF:
 Print start and end:
 - [ ] Start: homing, bed soak only from cold (10 min) [#29/T4], QGL, contact Z, mesh over the objects only, heat over the tray, first tool load purges there [#5/S5]
 - [ ] Right after a MENU → Preheat: the bed soak is skipped [#24/P4]; Preheat itself: bed heats, nozzle 150, filter on for ABS/ASA, heaters stay on past 15 min, Heaters off works [#24/P3]
-- [ ] ABS/ASA print: chamber soak at the centre 80 mm up, filter running, until target or the time limit [#29/T3, #19/H4]
+- [ ] ABS/ASA print: chamber soak at the centre 80 mm up, filter running, until target, sustained flattening, or the warm-up time limit, then a full timed chamber soak (see [chamber-soak.md](chamber-soak.md)) [#29/T3, #19/H4]
 - [ ] Preflight: a tool mapped to a gate holding different filament shows "Check the filament" and waits [#24/P5]; a matching print starts without it [#24/P6]; tools map to gates by name [#3/M1]
 - [ ] LEDs static during homing and start; logo follows the loaded filament colour and changes on tool change [#11/E1, E2]
 - [ ] Completed print: lights, filter run-on (10 min after a chamber print), LEDs to part-ready once the bed is below 40 °C [#18/M1, #26/N3]
@@ -95,6 +95,8 @@ Print start and end:
 - [ ] Print quality: a part with overhangs and a cylinder at Standard; compare speed and quality with the old preset [#35/V3, #34/S6]
 
 When stopping or failing:
+
+- [ ] Run the warm-up, soak, cancellation, warm-restart and parking checks in [chamber-soak.md](chamber-soak.md)
 - [ ] Cancel with filament loaded: park, lights/LEDs/filter off, "Unload the filament?" offered [#18/M2, #23/J1]
 - [ ] Make a print fail (a file sliced for the wrong nozzle): heaters off, then the "Print stopped" dialog with the reason; Reprint works; MENU shows "Why did the last print stop?"; LEDs show the error; "Turn the heaters off" works [#30/E1, #23/J2, J3, J4]
 - [ ] An MMU error: the "MMU paused" dialog replaces Happy Hare's, reason and position right; error LEDs, print colours back after resume [#22/R1, #11/E3]

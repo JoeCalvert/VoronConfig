@@ -30,3 +30,18 @@ Limits: it doesn't move a toolhead or change temperatures, so macros that loop
 on live readings (like the chamber wait) see the values in `state.py`. Happy Hare
 macros aren't expanded, because in this repo they're symlinks into the Happy
 Hare install.
+
+## Lifecycle behaviour
+
+`runtime.py` adds a small timer/SD-reader/heater-target model. Complete-workflow
+scenarios automatically drain the chamber wait; they do not simulate heat flow.
+The regression checks feed temperature traces and inspect intermediate stages,
+old callbacks, cancellations and failure cleanup:
+
+```sh
+python3 tools/macro_sim/test_lifecycle.py --klipper /path/to/klipper
+```
+
+Two checks use Klipper's actual G-code coordinate and base-cancel code with fake
+hardware. These tests run in CI alongside the rendered scenarios. They do not
+replace the printer commissioning checks in `docs/chamber-soak.md`.

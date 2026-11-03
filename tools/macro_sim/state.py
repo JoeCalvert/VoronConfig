@@ -10,7 +10,10 @@ COMMANDS = ['BEACON_HOME_Z_CONTACT', 'BEACON_MODEL_SELECT', 'BLOBIFIER_CLEAN', '
 # A plausible printer state for rendering macros. Override per scenario.
 def make_state(**o):
     st = {
-      'toolhead': D(position=D(x=175, y=175, z=10, e=0), axis_maximum=D(x=353, y=359, z=330), axis_minimum=D(x=0,y=0,z=-15), homed_axes='xyz'),
+      'toolhead': D(position=D(x=175, y=175, z=10, e=0), axis_maximum=D(x=353, y=359, z=330), axis_minimum=D(x=0,y=0,z=-15), homed_axes='xyz', estimated_print_time=0),
+      'gcode_move': D(position=D(x=175,y=175,z=10,e=0), gcode_position=D(x=175,y=175,z=10,e=0)),
+      'bed_mesh': D(mesh_matrix=[[]]),
+      'virtual_sdcard': D(is_active=False, file_path=None),
       'heater_bed': D(temperature=25, target=0),
       'idle_timeout': D(state='Idle'),
       'print_stats': D(state='standby', filename='', print_duration=3600.0, message=''),
