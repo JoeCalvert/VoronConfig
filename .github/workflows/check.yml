@@ -42,6 +42,9 @@ jobs:
       - name: Macro simulator runs every scenario without errors
         run: python3 tools/macro_sim/scenarios.py . --save /tmp/after.json
 
+      - name: Lifecycle behaviour (timers, temperature traces, cancellation and Klipper coordinates)
+        run: python3 tools/macro_sim/test_lifecycle.py --klipper /tmp/klipper
+
       - name: What this pull request changes in the expanded G-code
         if: github.event_name == 'pull_request'
         run: |

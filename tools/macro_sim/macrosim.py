@@ -24,7 +24,9 @@ def parse_files(root):
         if p in seen or not os.path.isfile(p): return
         seen.append(p); base = os.path.dirname(p)
         cur = None; key = None
-        for raw in open(p, errors='replace').read().split('\n'):
+        with open(p, errors='replace') as source:
+            lines = source.read().split('\n')
+        for raw in lines:
             if raw.startswith('#*#'): break
             # Klipper (configfile.py) cuts every line at its first '#', even
             # inside quotes; ';' starts a comment only after whitespace.
@@ -74,6 +76,7 @@ class Sim:
         self.macros, self.secs = parse_files(root)
         self.state = state  # extra printer objects
         self.out = []
+        self.templates = {}
     def printer(self):
         p = D(copy.deepcopy(self.state))
         # printer.configfile comes from the real config files, so a macro that
@@ -105,18 +108,19 @@ class Sim:
         if not parts: return
         cmd = parts[0].upper(); rest = parts[1] if len(parts) > 1 else ''
         if cmd == 'SET_GCODE_VARIABLE':
-            kv = dict(re.findall(r'(\w+)=("[^"]*"|\'[^\']*\'|\S+)', rest))
-            v = kv['VALUE']
-            try: val = ast.literal_eval(v)
-            except Exception: val = v
-            if isinstance(val, str):
-                try: val = ast.literal_eval(val)
-                except Exception: pass
+            lexer = shlex.shlex(rest, posix=True)
+            lexer.whitespace_split = True; lexer.commenters = '#;'
+            kv = dict(part.split('=', 1) for part in lexer)
+            val = ast.literal_eval(kv['VALUE'])
             self.macros[kv['MACRO'].upper()]['vars'][kv['VARIABLE'].lower()] = val
         if cmd in self.macros and depth < 20:
-            params = {k.upper(): v.strip('"\'') for k, v in re.findall(r'(\w+)=("[^"]*"|\'[^\']*\'|\S+)', rest)}
+            lexer = shlex.shlex(rest, posix=True)
+            lexer.whitespace_split = True; lexer.commenters = '#;'
+            params = {k.upper(): v for k, v in (part.split('=', 1) for part in lexer)}
             def raise_error(msg): raise RuntimeError(msg)
-            t = ENV.from_string(self.macros[cmd]['gcode'])
+            if cmd not in self.templates:
+                self.templates[cmd] = ENV.from_string(self.macros[cmd]['gcode'])
+            t = self.templates[cmd]
             txt = t.render(params=params, rawparams=rest, printer=self.printer(),
                            action_raise_error=raise_error, action_respond_info=lambda m: '',
                            action_call_remote_method=lambda m, **kw: 'REMOTE %s %s' % (m, sorted(kw.items())))
