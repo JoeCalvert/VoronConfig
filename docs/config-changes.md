@@ -799,3 +799,9 @@ Checks:
 - [ ] **D1** HF max-flow test: no extruder clicking before the wall turns rough (else smoothing 0.03, redo PA)
 - [ ] **D2** Overhang test and small-part layer-time check (commissioning section 6)
 - [ ] **D3** Filamentalist tension set the build guide's way
+
+## PR #45: electronics fan only with heaters
+
+| File | Change | Reason |
+|---|---|---|
+| `config/hardware/fans.cfg` | `[controller_fan electronics_fan]`: `stepper:` empty | You don't want it running just because the motors are enabled. It still runs whenever the nozzle or bed has a target, which covers every print |
