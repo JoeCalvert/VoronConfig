@@ -14,7 +14,7 @@ IDs, as `#PR/ID`.
 - [ ] `printer.cfg` still ends with the `#*# [beacon model default]` block, now with PID and input shaper sections above it; `SET_INPUT_SHAPER` reports mzv 47.6 / ei 43.6 [#31/R1]
 - [ ] Record the fitted nozzle: MENU → Change the nozzle → "I've already swapped it" → pick it (or `NOZZLE_SET DIAMETER=0.6 TYPE=hf`). Until then the printer assumes brass and refuses HF files [#34/S1, #5/S4]
 - [ ] Console after restart: no `SET_LED` errors [#11/E4]
-- [ ] Electronics fan runs when motors or a heater are on, stops ~30 s after both are off [#9/F1]
+- [ ] Electronics fan runs while the nozzle or bed is heating (so during every print), stops ~30 s after; motors on their own don't start it [#45, #9/F1]
 
 One-off housekeeping on the Pi:
 - [ ] klipper-backup: `github_repository` in `~/klipper-backup/.env` is not VoronConfig [#28/D1]
